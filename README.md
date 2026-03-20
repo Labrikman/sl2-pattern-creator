@@ -68,3 +68,41 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+# 🎛️ Boss SL-2 TSL Editor Pro
+
+Une application web avancée construite avec React pour créer, éditer, prévisualiser et exporter des patches personnalisés (fichiers `.tsl`) pour la pédale d'effet **Boss SL-2 Slicer**.
+
+L'application intègre un moteur de synthèse audio (Web Audio API) qui permet de prévisualiser vos séquences rythmiques directement dans le navigateur avant de les envoyer dans votre pédale via Boss Tone Studio.
+
+---
+
+## ✨ Fonctionnalités Principales
+
+* **🔁 Import / Export natif `.tsl` :** Lisez et générez des fichiers parfaitement compatibles avec le logiciel officiel Boss Tone Studio.
+* **🎹 Moteur Audio Intégré :** Écoutez vos patterns en temps réel. Le moteur inclut un synthétiseur basique avec Sub/Up Octaves, Distortion, Bitcrusher, LFO, Delay et Reverb pour simuler au mieux le rendu final.
+* **🎚️ Séquenceur 24-Pas Avancé :** * Édition indépendante des Canaux 1 (L) et 2 (R).
+  * Contrôle précis par pas : Volume, Pitch (-12/+12), Filtre/Montant d'effet, et Longueur (Duty).
+  * Interface épurée : Cliquez sur un pas de la grille pour révéler ses paramètres.
+* **🎛️ Paramètres Exhaustifs de la SL-2 :**
+  * **Slicer Header :** Choix du Pattern, de la longueur de séquence (8, 12, 16, 24) et du Type d'Effet (Pitch, Flanger, Phaser, Sweep, Filter, Ring).
+  * **Advanced Channel FX :** Paramétrage profond des sous-effets (Phaser, Flanger, Tremolo, Overtone).
+  * **Global Routing :** Accès total aux réglages globaux souvent cachés (Mixer, Divider, Compressor, Parametric EQ, Noise Suppressor).
+* **⚡ Outils de Workflow :**
+  * **Bouton Randomize (🎲) :** Génération algorithmique et musicale de patterns aléatoires pour l'inspiration immédiate.
+  * **Copy to Channel (📋) :** Clonez instantanément un canal vers l'autre pour créer rapidement une base stéréo cohérente.
+
+---
+
+## 🚀 Installation & Lancement
+
+Ce projet est construit avec **React**. Pour le faire tourner en local sur votre machine :
+
+### Prérequis
+* [Node.js](https://nodejs.org/) installé sur votre machine.
+
+### Étapes
+1. Clonez ce dépôt :
+   ```bash
+   git clone [https://github.com/votre-nom-utilisateur/sl2-tsl-editor-pro.git](https://github.com/votre-nom-utilisateur/sl2-tsl-editor-pro.git)
+   cd sl2-tsl-editor-pro

@@ -839,6 +839,25 @@ const SlicerApp = () => {
           >
             💾 EXPORT .TSL
           </button>
+          {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
+          <a
+            href='https://ko-fi.com/TON_LIEN_ICI'
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{
+              padding: "8px 15px",
+              background: "#ffffff",
+              color: "#F00",
+              textDecoration: "none",
+              borderRadius: "4px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              fontSize: "13px",
+            }}
+          >
+            Support Labrikman 🧱
+          </a>
         </div>
       </div>
 
@@ -1470,6 +1489,79 @@ const SlicerApp = () => {
             </div>
           );
         })}
+      </div>
+      {/* FOOTER & LIENS D'AFFILIATION */}
+      <div
+        style={{
+          marginTop: "40px",
+          paddingTop: "20px",
+          borderTop: "1px solid #333",
+          textAlign: "center",
+          fontSize: "13px",
+          color: "#888",
+        }}
+      >
+        <p style={{ margin: "0 0 10px 0" }}>
+          Built with ❤️ for the synth & guitar community. Free and open-source.
+        </p>
+        <p style={{ margin: 0 }}>
+          Need more gear? Support this project by shopping through these
+          affiliate links at no extra cost to you:
+          <br />
+          <a
+            href='TON_LIEN_BOSS_ICI'
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{
+              color: "#00e5ff",
+              textDecoration: "none",
+              marginLeft: "8px",
+            }}
+          >
+            BOSS
+          </a>{" "}
+          |
+          <a
+            href='TON_LIEN_THOMANN_ICI'
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{
+              color: "#00e5ff",
+              textDecoration: "none",
+              marginLeft: "8px",
+              marginRight: "8px",
+            }}
+          >
+            Thomann
+          </a>{" "}
+          |
+          <a
+            href='TON_LIEN_REVERB_ICI'
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{
+              color: "#00e5ff",
+              textDecoration: "none",
+              marginLeft: "8px",
+              marginRight: "8px",
+            }}
+          >
+            Reverb
+          </a>{" "}
+          |
+          <a
+            href='TON_LIEN_AMAZON_ICI'
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{
+              color: "#00e5ff",
+              textDecoration: "none",
+              marginLeft: "8px",
+            }}
+          >
+            Amazon
+          </a>
+        </p>
       </div>
     </div>
   );

@@ -3,8 +3,13 @@ import React, { useState, useEffect, useRef } from "react";
 // ==========================================
 // 1. AUDIO UTILITIES (Math functions)
 // ==========================================
+let stepNumber = [8, 12, 16, 24];
+
+
+const MAX_STEPS = 24;
+
 const generateEmptyTrack = () =>
-  Array.from({ length: 24 }, () => ({
+  Array.from({ length: MAX_STEPS }, () => ({
     level: 100,
     pitch: 0,
     filter: 50,
@@ -115,6 +120,7 @@ const SlicerApp = () => {
   const [ch1Steps, setCh1Steps] = useState(generateEmptyTrack());
   const [ch2Steps, setCh2Steps] = useState(generateEmptyTrack());
 
+
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
 
@@ -155,12 +161,15 @@ const SlicerApp = () => {
       Math.floor(Math.random() * (max - min + 1)) + min;
 
     const generateRandomSteps = () =>
-      Array.from({ length: 24 }, () => ({
+      Array.from({ length: MAX_STEPS }, () => ({
         level: Math.random() > 0.4 ? rand(40, 100) : 0,
         pitch: rand(-12, 12),
         filter: rand(0, 100),
         length: rand(10, 100),
       }));
+
+    const randomIndex1 = rand(0, 3);
+    const randomIndex2 = rand(0, 3);
 
     setCh1Steps(generateRandomSteps());
     setCh2Steps(generateRandomSteps());
@@ -168,13 +177,14 @@ const SlicerApp = () => {
     const randomEff1 = rand(0, 6);
     const randomEff2 = rand(0, 6);
 
+
     const randomizeFxArray = (arr) =>
       arr.map((val, idx) => (idx > 0 ? rand(0, 100) : val));
 
     setBossParams((prev) => ({
       ...prev,
-      slicer1Header: [50, prev.slicer1Header[1], randomEff1, 0],
-      slicer2Header: [50, prev.slicer2Header[1], randomEff2, 0],
+      slicer1Header: [50, prev.slicer1Header[1], randomEff1, randomIndex1],
+      slicer2Header: [50, prev.slicer2Header[1], randomEff2, randomIndex2],
       phaser1: randomizeFxArray(prev.phaser1),
       flanger1: randomizeFxArray(prev.flanger1),
       tremolo1: randomizeFxArray(prev.tremolo1),
@@ -263,7 +273,7 @@ const SlicerApp = () => {
         [
           {
             memo: {
-              memo: "Exported via Gemini Editor",
+              memo: "Exported via Labrik Editor",
               isToneCentralPatch: true,
             },
             paramSet: {
@@ -299,6 +309,7 @@ const SlicerApp = () => {
     const blob = new Blob([JSON.stringify(tslContent, null, 2)], {
       type: "application/json",
     });
+
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `${bossParams.patchName.replace(/\s+/g, "_").toLowerCase()}.tsl`;
@@ -359,12 +370,12 @@ const SlicerApp = () => {
           peq: parseArray(patch["PATCH%PEQ"]),
           beat: parseArray(patch["PATCH%BEAT"]),
           phaser1: parseArray(patch["PATCH%PHASER(1)"]),
-          flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
-          tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
-          overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
           phaser2: parseArray(patch["PATCH%PHASER(2)"]),
+          flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
           flanger2: parseArray(patch["PATCH%FLANGER(2)"]),
+          tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
           tremolo2: parseArray(patch["PATCH%TREMOLO(2)"]),
+          overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
           overtone2: parseArray(patch["PATCH%OVERTONE(2)"]),
         });
       } catch (err) {
@@ -582,7 +593,12 @@ const SlicerApp = () => {
       const stepDuration = 60 / bpm / 4;
       timerRef.current = setInterval(() => {
         setCurrentStep((prev) => {
-          const nextStep = (prev + 1) % 24;
+          const stepCountCh1 = stepNumber[bossParams.slicer1Header[3]];
+          const stepCountCh2 = stepNumber[bossParams.slicer2Header[3]];
+
+          const maxSteps = Math.max(stepCountCh1, stepCountCh2);
+
+          const nextStep = (prev + 1) % maxSteps;          
           const time = audioCtx.current.currentTime;
 
           const triggerStep = (stepData, channelNodes) => {
@@ -615,9 +631,12 @@ const SlicerApp = () => {
             slicerGain.gain.setValueAtTime(targetVolume, releaseTime - 0.01);
             slicerGain.gain.linearRampToValueAtTime(0, releaseTime);
           };
-
-          triggerStep(ch1Steps[nextStep], nodes.current.ch1);
-          triggerStep(ch2Steps[nextStep], nodes.current.ch2);
+          if (nextStep < ch1Steps.length) {
+            triggerStep(ch1Steps[nextStep], nodes.current.ch1);
+          }
+          if (nextStep < ch1Steps.length) {
+            triggerStep(ch2Steps[nextStep], nodes.current.ch2);
+          }
           return nextStep;
         });
       }, stepDuration * 1000);
@@ -740,7 +759,7 @@ const SlicerApp = () => {
         }}
       >
         <h1 style={{ margin: 0, color: "#00e5ff", fontSize: "24px" }}>
-          SL-2 TSL Editor Pro
+          SL-2 TSL Editor0
         </h1>
         <div
           style={{
@@ -802,7 +821,7 @@ const SlicerApp = () => {
               fontWeight: "bold",
             }}
           >
-            🎲 RANDOMIZE
+            ☢︎ RANDOMIZE
           </button>
           <input
             type='file'
@@ -823,7 +842,7 @@ const SlicerApp = () => {
               fontWeight: "bold",
             }}
           >
-            📂 IMPORT .TSL
+            ↓ IMPORT .TSL
           </button>
           <button
             onClick={exportTSL}
@@ -837,7 +856,7 @@ const SlicerApp = () => {
               fontWeight: "bold",
             }}
           >
-            💾 EXPORT .TSL
+            ↑ EXPORT .TSL
           </button>
           {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
           <a
@@ -983,7 +1002,7 @@ const SlicerApp = () => {
             color: "#0FF",
           }}
         >
-          🛠️ Global Effects & Routing (Click to expand)
+          ☣︎ Global Effects & Routing (Click to expand)
         </summary>
         <div style={{ padding: "15px" }}>
           <p
@@ -995,7 +1014,7 @@ const SlicerApp = () => {
               fontStyle: "italic",
             }}
           >
-            ℹ️ These effects process the sound continuously. They are completely
+            ⚠︎ These effects process the sound continuously. They are completely
             independent of the Slicer's rhythmic chopping.
           </p>
           <div
@@ -1034,6 +1053,7 @@ const SlicerApp = () => {
           const color = channel === 1 ? "#0FF" : "#F0F";
           const headerKey = channel === 1 ? "slicer1Header" : "slicer2Header";
           const effectPrefix = channel === 1 ? "1" : "2";
+          const stepCount = stepNumber[bossParams[headerKey][3]];
 
           const currentEffectType = bossParams[headerKey][2];
           const dynamicEffectName = getEffectParamName(currentEffectType);
@@ -1076,7 +1096,7 @@ const SlicerApp = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    📋 COPY TO CH {channel === 1 ? 2 : 1}
+                    ⏀ COPY TO CH {channel === 1 ? 2 : 1}
                   </button>
                 </div>
                 <div
@@ -1128,9 +1148,9 @@ const SlicerApp = () => {
                   >
                     Step Num:
                     <select
-                      value={bossParams[headerKey][1]}
+                      value={bossParams[headerKey][3]}
                       onChange={(e) =>
-                        updateBossParam(headerKey, 1, e.target.value)
+                        updateBossParam(headerKey, 3, e.target.value) 
                       }
                       style={{
                         background: "#111",
@@ -1141,8 +1161,9 @@ const SlicerApp = () => {
                       }}
                     >
                       <option value='0'>8 Steps</option>
-                      <option value='1'>12/24 Steps</option>
+                      <option value='1'>12 Steps</option>
                       <option value='2'>16 Steps</option>
+                      <option value='3'>24 Steps</option>
                     </select>
                   </label>
                   <label
@@ -1188,7 +1209,7 @@ const SlicerApp = () => {
                   fontStyle: "italic",
                 }}
               >
-                ℹ️ <strong>Effect Type</strong> determines which effect will be
+                ⚠︎ <strong>Effect Type</strong> determines which effect will be
                 activated and sequenced by the Slicer. Pitch remains independent
                 and stackable.
               </p>
@@ -1253,7 +1274,7 @@ const SlicerApp = () => {
                 </div>
               </details>
 
-              {/* 24 STEPS GRID */}
+              {/* params STEPS GRID */}
               <div
                 style={{
                   display: "grid",
@@ -1262,7 +1283,7 @@ const SlicerApp = () => {
                   marginBottom: "20px",
                 }}
               >
-                {steps.map((step, i) => {
+                {steps.slice(0, stepCount).map((step, i) => {
                   const isActive = step.level > 0;
                   const isPlayingStep = i === currentStep && isPlaying;
                   const isEditing = i === editStepIndex;

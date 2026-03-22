@@ -86,7 +86,7 @@ const SlicerApp = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
   const [attack, setAttack] = useState(10);
-  const [duty, setDuty] = useState(50); // Global Duty (Multiplicateur)
+  const [duty, setDuty] = useState(50);
   const [masterVolume, setMasterVolume] = useState(50);
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -348,20 +348,21 @@ const SlicerApp = () => {
 
         const sl1Data = patch["PATCH%SLICER(1)"];
         const sl2Data = patch["PATCH%SLICER(2)"];
-
+        const stepIndex1 = fromHex(sl1Data[3]);
+        const stepIndex2 = fromHex(sl2Data[3]);
         setBossParams({
           patchName: importedName || "IMPORTED PATCH",
           slicer1Header: [
             fromHex(sl1Data[0]),
             fromHex(sl1Data[1]),
             fromHex(sl1Data[2]),
-            fromHex(sl1Data[3]),
+            stepIndex1,
           ],
           slicer2Header: [
             fromHex(sl2Data[0]),
             fromHex(sl2Data[1]),
             fromHex(sl2Data[2]),
-            fromHex(sl2Data[3]),
+            stepIndex2,
           ],
           comp: parseArray(patch["PATCH%COMP"]),
           divider: parseArray(patch["PATCH%DIVIDER"]),
@@ -598,8 +599,13 @@ const SlicerApp = () => {
 
           const maxSteps = Math.max(stepCountCh1, stepCountCh2);
 
-          const nextStep = (prev + 1) % maxSteps;          
-          const time = audioCtx.current.currentTime;
+          const nextStep = (prev + 1) % maxSteps;  
+  
+          const swing = 0.1; // 10%
+
+          const isOffBeat = nextStep % 2 === 1;
+          const swingOffset = isOffBeat ? stepDuration * swing : 0;
+          const time = audioCtx.current.currentTime + swingOffset;        
 
           const triggerStep = (stepData, channelNodes) => {
             const { osc, subOsc, upOsc, filter, slicerGain } = channelNodes;
@@ -613,7 +619,10 @@ const SlicerApp = () => {
 
             const filterBaseFreq = 100 + stepData.filter * 39;
             filter.frequency.setValueAtTime(filterBaseFreq, time);
-
+            // filter.frequency.linearRampToValueAtTime(
+            //   nextFilterFreq,
+            //   time + stepDuration
+            // );
             const targetVolume = stepData.level / 100;
             const attackTime = time + stepDuration * (attack / 100);
 
@@ -625,11 +634,14 @@ const SlicerApp = () => {
             if (releaseTime > time + stepDuration)
               releaseTime = time + stepDuration - 0.01;
 
-            slicerGain.gain.cancelScheduledValues(time);
+            const shape = (t) => Math.pow(t, 3); // tweakable
+
             slicerGain.gain.setValueAtTime(0, time);
-            slicerGain.gain.linearRampToValueAtTime(targetVolume, attackTime);
-            slicerGain.gain.setValueAtTime(targetVolume, releaseTime - 0.01);
-            slicerGain.gain.linearRampToValueAtTime(0, releaseTime);
+
+            for (let i = 0; i <= 1; i += 0.1) {
+              const t = time + i * attackTime;
+              slicerGain.gain.setValueAtTime(shape(i) * targetVolume, t);
+            }
           };
           if (nextStep < ch1Steps.length) {
             triggerStep(ch1Steps[nextStep], nodes.current.ch1);
@@ -759,7 +771,7 @@ const SlicerApp = () => {
         }}
       >
         <h1 style={{ margin: 0, color: "#00e5ff", fontSize: "24px" }}>
-          SL-2 TSL Editor0
+          SL-2 TSL Editor
         </h1>
         <div
           style={{

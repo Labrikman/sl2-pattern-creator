@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-
 // ==========================================
 // 1. AUDIO UTILITIES (Math functions)
 // ==========================================
 let stepNumber = [8, 12, 16, 24];
-
 
 const MAX_STEPS = 24;
 
@@ -16,7 +14,7 @@ const generateEmptyTrack = () =>
     length: 50,
   }));
 
-const makeDistortionCurve = (amount) => {
+  const makeDistortionCurve = (amount) => {
   if (amount === 0) return null;
   const k = typeof amount === "number" ? amount : 50;
   const n_samples = 44100;
@@ -41,21 +39,33 @@ const makeBitCrusherCurve = (bits) => {
   return curve;
 };
 
-const generateReverbBuffer = (audioCtx, type) => {
-  const sampleRate = audioCtx.sampleRate;
-  const duration = type === "hall" ? 2.5 : type === "room" ? 0.7 : 1.2;
-  const decay = type === "hall" ? 2.0 : type === "room" ? 5.0 : 3.0;
-  const length = sampleRate * duration;
-  const impulse = audioCtx.createBuffer(2, length, sampleRate);
-  const left = impulse.getChannelData(0);
-  const right = impulse.getChannelData(1);
-  for (let i = 0; i < length; i++) {
-    const multiplier = Math.pow(1 - i / length, decay);
-    left[i] = (Math.random() * 2 - 1) * multiplier;
-    right[i] = (Math.random() * 2 - 1) * multiplier;
-  }
-  return impulse;
+const mapFreq = (val, min = 20, max = 12000) => {
+  const norm = val / 100;
+  return min * Math.pow(max / min, norm);
 };
+
+const mapGain = (val) => {
+  return (val - 50) * 0.5; // -25dB → +25dB
+};
+
+const mapQ = (val) => {
+  return 0.5 + (val / 100) * 9.5; // 0.5 → 10
+};
+// const generateReverbBuffer = (audioCtx, type) => {
+//   const sampleRate = audioCtx.sampleRate;
+//   const duration = type === "hall" ? 2.5 : type === "room" ? 0.7 : 1.2;
+//   const decay = type === "hall" ? 2.0 : type === "room" ? 5.0 : 3.0;
+//   const length = sampleRate * duration;
+//   const impulse = audioCtx.createBuffer(2, length, sampleRate);
+//   const left = impulse.getChannelData(0);
+//   const right = impulse.getChannelData(1);
+//   for (let i = 0; i < length; i++) {
+//     const multiplier = Math.pow(1 - i / length, decay);
+//     left[i] = (Math.random() * 2 - 1) * multiplier;
+//     right[i] = (Math.random() * 2 - 1) * multiplier;
+//   }
+//   return impulse;
+// };
 
 // --- UI UTILITY: Dynamic effect parameter name ---
 const getEffectParamName = (effectType) => {
@@ -88,11 +98,9 @@ const SlicerApp = () => {
   const [attack, setAttack] = useState(10);
   const [duty, setDuty] = useState(50);
   const [masterVolume, setMasterVolume] = useState(50);
-
   const [currentStep, setCurrentStep] = useState(0);
   const [editStepCh1, setEditStepCh1] = useState(0);
   const [editStepCh2, setEditStepCh2] = useState(0);
-
   const [synthConfig, setSynthConfig] = useState({
     pitch: 0,
     gain: 100,
@@ -101,29 +109,25 @@ const SlicerApp = () => {
     octSub: 0,
     octUp: 0,
   });
-  const [lfoConfig, setLfoConfig] = useState({
-    wave: "sine",
-    rate: 0.5,
-    depth: 0,
-  });
-  const [fx, setFx] = useState({
-    chorusMix: 0,
-    phaserMix: 0,
-    delayMix: 0,
-    delayTime: 0.3,
-    delayFeedback: 40,
-    delayType: "digital",
-    reverbMix: 0,
-    reverbType: "hall",
-  });
-
+  // const [lfoConfig, setLfoConfig] = useState({
+  //   wave: "sine",
+  //   rate: 0.5,
+  //   depth: 0,
+  // });
+  // const [fx, setFx] = useState({
+  //   chorusMix: 0,
+  //   phaserMix: 0,
+  //   delayMix: 0,
+  //   delayTime: 0.3,
+  //   delayFeedback: 40,
+  //   delayType: "digital",
+  //   reverbMix: 0,
+  //   reverbType: "hall",
+  // });
   const [ch1Steps, setCh1Steps] = useState(generateEmptyTrack());
   const [ch2Steps, setCh2Steps] = useState(generateEmptyTrack());
-
-
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
-
   const [bossParams, setBossParams] = useState({
     patchName: "MY SL2 PATCH",
     slicer1Header: [50, 1, 0, 0],
@@ -398,32 +402,72 @@ const SlicerApp = () => {
         0.05,
       );
     const m = nodes.current.master;
-    if (m.delayGain)
-      m.delayGain.gain.setTargetAtTime(fx.delayMix / 100, time, 0.05);
-    if (m.delayNode)
-      m.delayNode.delayTime.setTargetAtTime(fx.delayTime, time, 0.05);
-    if (m.delayFeedback)
-      m.delayFeedback.gain.setTargetAtTime(fx.delayFeedback / 100, time, 0.05);
-    if (m.delayFilter)
-      m.delayFilter.frequency.setTargetAtTime(
-        fx.delayType === "analog" ? 1500 : 20000,
-        time,
-        0.05,
-      );
-    if (m.reverbGain)
-      m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
-    if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
-      m.reverbNode.buffer = generateReverbBuffer(
-        audioCtx.current,
-        fx.reverbType,
-      );
-      m.currentReverbType = fx.reverbType;
+    // if (m.delayGain)
+    //   m.delayGain.gain.setTargetAtTime(fx.delayMix / 100, time, 0.05);
+    // if (m.delayNode)
+    //   m.delayNode.delayTime.setTargetAtTime(fx.delayTime, time, 0.05);
+    // if (m.delayFeedback)
+    //   m.delayFeedback.gain.setTargetAtTime(fx.delayFeedback / 100, time, 0.05);
+    // if (m.delayFilter)
+    //   m.delayFilter.frequency.setTargetAtTime(
+    //     fx.delayType === "analog" ? 1500 : 20000,
+    //     time,
+    //     0.05,
+    //   );
+    // if (m.reverbGain)
+    //   m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
+    // if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
+    //   m.reverbNode.buffer = generateReverbBuffer(
+    //     audioCtx.current,
+    //     fx.reverbType,
+    //   );
+    //   m.currentReverbType = fx.reverbType;
+    // }
+    // if (m.chorusGain)
+    //   m.chorusGain.gain.setTargetAtTime(fx.chorusMix / 100, time, 0.05);
+    // if (m.phaserGain)
+    //   m.phaserGain.gain.setTargetAtTime(fx.phaserMix / 100, time, 0.05);
+    // BOSS PARAMS
+    const mixer = bossParams.mixer;
+    if (m.dryGain && m.wetGain) {
+      m.wetGain.gain.setTargetAtTime(mixer[2] / 100, time, 0.05);
+      m.dryGain.gain.setTargetAtTime(mixer[4] / 100, time, 0.05);
     }
-    if (m.chorusGain)
-      m.chorusGain.gain.setTargetAtTime(fx.chorusMix / 100, time, 0.05);
-    if (m.phaserGain)
-      m.phaserGain.gain.setTargetAtTime(fx.phaserMix / 100, time, 0.05);
-
+    const comp = bossParams.comp;
+    if (m.compressor) {
+      m.compressor.threshold.setTargetAtTime(-comp[1], time, 0.05);
+      m.compressor.ratio.setTargetAtTime(1 + comp[2] / 10, time, 0.05);
+      m.compressor.attack.setTargetAtTime(comp[3] / 1000, time, 0.05);
+      m.compressor.release.setTargetAtTime(comp[4] / 1000, time, 0.05);
+    }
+    // const ns = bossParams.ns;
+    // if (m.noiseGate) {
+    //   const threshold = ns[1] / 100;
+    //   const gateValue = masterVolume / 100 > threshold ? 1 : 0;
+    //   m.noiseGate.gain.setTargetAtTime(gateValue, time, 0.05);
+    // }
+    const peq = bossParams.peq;
+    if (m.eqLow && peq[0]) {
+      m.eqLow.frequency.setTargetAtTime(mapFreq(peq[2]), time, 0.05);
+      m.eqLow.gain.setTargetAtTime(mapGain(peq[1]), time, 0.05);
+    }
+    if (m.eqMid1) {
+      m.eqMid1.frequency.setTargetAtTime(mapFreq(peq[3]), time, 0.05);
+      m.eqMid1.gain.setTargetAtTime(mapGain(peq[4]), time, 0.05);
+      m.eqMid1.Q.value = mapQ(peq[5]);
+    }
+    if (m.eqMid2) {
+      m.eqMid2.frequency.setTargetAtTime(mapFreq(peq[6]), time, 0.05);
+      m.eqMid2.gain.setTargetAtTime(mapGain(peq[7]), time, 0.05);
+      m.eqMid2.Q.value = mapQ(peq[8]);
+    }
+    if (m.eqHigh) {
+      m.eqHigh.frequency.setTargetAtTime(mapFreq(peq[9]), time, 0.05);
+      m.eqHigh.gain.setTargetAtTime(mapGain(peq[10]), time, 0.05);
+    }
+    if (m.eqOutputGain) {
+      m.eqOutputGain.gain.setTargetAtTime(peq[11] / 100, time, 0.05);
+    }
     ["ch1", "ch2"].forEach((ch) => {
       const channel = nodes.current[ch];
       if (!channel.osc) return;
@@ -436,11 +480,79 @@ const SlicerApp = () => {
         0.05,
       );
       channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
-      channel.lfoOsc.type = lfoConfig.wave;
-      channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
-      channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
+      // channel.lfoOsc.type = lfoConfig.wave;
+      // channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
+      // channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
     });
-  }, [masterVolume, synthConfig, lfoConfig, fx]);
+  }, [
+    masterVolume, 
+    bossParams.mixer, 
+    bossParams.comp, 
+    bossParams.ns, 
+    bossParams.peq,
+    synthConfig
+    // lfoConfig, 
+    // fx, 
+  ]);
+
+  // --- ENVELOPE FOLLOWER (NOISE SUPPRESSOR) ---
+  useEffect(() => {
+    let animationId;
+
+    const trackEnvelope = () => {
+      const m = nodes.current.master;
+      if (m.gateAnalyser && m.noiseGate && isPlaying) {
+        const ns = bossParams.ns;
+        const isEnabled = ns[0] === 1;
+        const thresholdParam = ns[1] / 100; 
+        const releaseParam = ns[2] / 100; // Le paramètre Release de l'interface
+
+        if (!isEnabled) {
+          // Si le Gate est éteint, la porte est grande ouverte (gain = 1)
+          m.noiseGate.gain.setTargetAtTime(1, audioCtx.current.currentTime, 0.05);
+        } else {
+          // On récupère le signal audio du moment
+          const dataArray = new Float32Array(m.gateAnalyser.frequencyBinCount);
+          m.gateAnalyser.getFloatTimeDomainData(dataArray);
+
+          // On calcule le volume réel (Root Mean Square / RMS)
+          let sumSquares = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sumSquares += dataArray[i] * dataArray[i];
+          }
+          const rms = Math.sqrt(sumSquares / dataArray.length);
+
+          const time = audioCtx.current.currentTime;
+          // Ajustement mathématique : le RMS d'un signal fort tourne souvent autour de 0.2/0.4.
+          // On adapte ton threshold (0-1) à cette échelle réelle.
+          const actualThreshold = thresholdParam * 0.4;
+
+          if (rms > actualThreshold) {
+            // Le son est assez fort : on ouvre la porte instantanément (10ms)
+            m.noiseGate.gain.setTargetAtTime(1, time, 0.01);
+          } else {
+            // Le son est trop faible : on referme doucement la porte selon ton réglage Release
+            // On ne descend pas à 0 parfait pour éviter les artefacts audios (0.001 est idéal)
+            m.noiseGate.gain.setTargetAtTime(0.001, time, releaseParam > 0 ? releaseParam : 0.05);
+          }
+        }
+      }
+      
+      // On boucle à la prochaine frame
+      animationId = requestAnimationFrame(trackEnvelope);
+    };
+
+    if (isPlaying) {
+      trackEnvelope();
+    }
+
+    return () => cancelAnimationFrame(animationId); // On nettoie quand on fait STOP
+  }, [isPlaying, bossParams.ns]);
+
+  const bossParamsRef = useRef(bossParams);
+  useEffect(() => {
+    bossParamsRef.current = bossParams;
+  }, [bossParams]);
 
   const initAudio = () => {
     if (!audioCtx.current) {
@@ -451,73 +563,125 @@ const SlicerApp = () => {
       const masterOut = ctx.createGain();
       masterOut.gain.value = masterVolume / 100;
       masterOut.connect(ctx.destination);
-      const chorusDelay = ctx.createDelay();
-      chorusDelay.delayTime.value = 0.03;
-      const chorusLFO = ctx.createOscillator();
-      const chorusLFOGain = ctx.createGain();
-      chorusLFO.frequency.value = 1.5;
-      chorusLFOGain.gain.value = 0.005;
-      chorusLFO.connect(chorusLFOGain);
-      chorusLFOGain.connect(chorusDelay.delayTime);
-      chorusLFO.start();
-      const chorusGain = ctx.createGain();
-      chorusGain.gain.value = 0;
-      const phaserLFO = ctx.createOscillator();
-      phaserLFO.frequency.value = 0.5;
-      const phaserDepth = ctx.createGain();
-      phaserDepth.gain.value = 800;
-      const phaserGain = ctx.createGain();
-      phaserGain.gain.value = 0;
+      // COMPRESSOR
+      const compressor = ctx.createDynamicsCompressor();      
+      const noiseGate = ctx.createGain();
+      const gateAnalyser = ctx.createAnalyser();
+      gateAnalyser.fftSize = 512;
+      gateAnalyser.smoothingTimeConstant = 0.8; 
+      // INPUT BOSS PARAMS
+      masterIn.connect(compressor);
+      // COMP → GATE & ANALYSEUR
+      compressor.connect(noiseGate);
+      compressor.connect(gateAnalyser); // L'analyseur écoute en parallèle
+      // EQ (Parametric EQ simplifié)
+      const eqLow = ctx.createBiquadFilter();
+      eqLow.type = "lowshelf";
+      const eqMid1 = ctx.createBiquadFilter();
+      eqMid1.type = "peaking";
+      const eqMid2 = ctx.createBiquadFilter();
+      eqMid2.type = "peaking";
+      const eqHigh = ctx.createBiquadFilter();
+      eqHigh.type = "highshelf";
+      const eqOutputGain = ctx.createGain();
+      // MIXER (dry/wet simple)
+      const dryGain = ctx.createGain();
+      const wetGain = ctx.createGain();
+      // const chorusDelay = ctx.createDelay();
+      // chorusDelay.delayTime.value = 0.03;
+      // const chorusLFO = ctx.createOscillator();
+      // const chorusLFOGain = ctx.createGain();
+      // chorusLFO.frequency.value = 1.5;
+      // chorusLFOGain.gain.value = 0.005;
+      // chorusLFO.connect(chorusLFOGain);
+      // chorusLFOGain.connect(chorusDelay.delayTime);
+      // chorusLFO.start();
+      // const chorusGain = ctx.createGain();
+      // chorusGain.gain.value = 0;
+      // const phaserLFO = ctx.createOscillator();
+      // phaserLFO.frequency.value = 0.5;
+      // const phaserDepth = ctx.createGain();
+      // phaserDepth.gain.value = 800;
+      // const phaserGain = ctx.createGain();
+      // phaserGain.gain.value = 0;
       let lastPhaserNode = masterIn;
       for (let i = 0; i < 4; i++) {
         const pFilter = ctx.createBiquadFilter();
         pFilter.type = "allpass";
         pFilter.frequency.value = 1000;
-        phaserLFO.connect(phaserDepth);
-        phaserDepth.connect(pFilter.frequency);
+        // phaserLFO.connect(phaserDepth);
+        // phaserDepth.connect(pFilter.frequency);
         lastPhaserNode.connect(pFilter);
         lastPhaserNode = pFilter;
       }
-      phaserLFO.start();
-      lastPhaserNode.connect(phaserGain);
-      const delayNode = ctx.createDelay(3.0);
-      const delayFeedback = ctx.createGain();
-      const delayFilter = ctx.createBiquadFilter();
-      const delayGain = ctx.createGain();
-      delayNode.delayTime.value = fx.delayTime;
-      delayFeedback.gain.value = fx.delayFeedback / 100;
-      delayFilter.type = "lowpass";
-      delayFilter.frequency.value = 20000;
-      delayGain.gain.value = fx.delayMix / 100;
-      delayNode.connect(delayFilter);
-      delayFilter.connect(delayFeedback);
-      delayFeedback.connect(delayNode);
-      delayNode.connect(delayGain);
-      const reverbNode = ctx.createConvolver();
-      reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
-      const reverbGain = ctx.createGain();
-      reverbGain.gain.value = fx.reverbMix / 100;
-      reverbNode.connect(reverbGain);
+      // phaserLFO.start();
+      // lastPhaserNode.connect(phaserGain);
+      // SUPPLEMENTARIES EFFECTS
+      // const delayNode = ctx.createDelay(3.0);
+      // const delayFeedback = ctx.createGain();
+      // const delayFilter = ctx.createBiquadFilter();
+      // const delayGain = ctx.createGain();
+      // delayNode.delayTime.value = fx.delayTime;
+      // delayFeedback.gain.value = fx.delayFeedback / 100;
+      // delayFilter.type = "lowpass";
+      // delayFilter.frequency.value = 20000;
+      // delayGain.gain.value = fx.delayMix / 100;
+      // delayNode.connect(delayFilter);
+      // delayFilter.connect(delayFeedback);
+      // delayFeedback.connect(delayNode);
+      // delayNode.connect(delayGain);
+      // const reverbNode = ctx.createConvolver();
+      // reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
+      // const reverbGain = ctx.createGain();
+      // reverbGain.gain.value = fx.reverbMix / 100;
+      // reverbNode.connect(reverbGain);
+      // masterIn.connect(chorusDelay);
+      // chorusDelay.connect(chorusGain);
+      // chorusGain.connect(masterOut);
+      // phaserGain.connect(masterOut);
+      // masterIn.connect(delayNode);
+      // delayGain.connect(masterOut);
+      // masterIn.connect(reverbNode);
+      // reverbGain.connect(masterOut);
       masterIn.connect(masterOut);
-      masterIn.connect(chorusDelay);
-      chorusDelay.connect(chorusGain);
-      chorusGain.connect(masterOut);
-      phaserGain.connect(masterOut);
-      masterIn.connect(delayNode);
-      delayGain.connect(masterOut);
-      masterIn.connect(reverbNode);
-      reverbGain.connect(masterOut);
+      // INPUT BOSS PARAMS
+      masterIn.connect(compressor);
+      // COMP → GATE
+      compressor.connect(noiseGate);
+      // GATE → EQ
+      noiseGate.connect(eqLow);
+      noiseGate.connect(eqLow);
+      eqLow.connect(eqMid1);
+      eqMid1.connect(eqMid2);
+      eqMid2.connect(eqHigh);
+      eqHigh.connect(eqOutputGain);
+      eqOutputGain.connect(wetGain);
+      // EQ → MIXER
+      masterIn.connect(dryGain);
+      // MIXER → OUT
+      wetGain.connect(masterOut);
+      dryGain.connect(masterOut);
       nodes.current.master = {
         gain: masterOut,
-        delayNode,
-        delayFeedback,
-        delayFilter,
-        delayGain,
-        reverbNode,
-        reverbGain,
-        currentReverbType: fx.reverbType,
-        chorusGain,
-        phaserGain,
+        compressor,
+        noiseGate,
+        eqLow,
+        eqMid1,
+        eqMid2,
+        eqHigh,
+        eqOutputGain,
+        dryGain,
+        wetGain,
+        gateAnalyser
+        // currentReverbType: fx.reverbType,
+        // delayNode,
+        // delayFeedback,
+        // delayFilter,
+        // delayGain,
+        // reverbNode,
+        // reverbGain,
+        // chorusGain,
+        // phaserGain,
       };
 
       const createChain = (panValue) => {
@@ -527,13 +691,13 @@ const SlicerApp = () => {
         const upOsc = ctx.createOscillator();
         const upGain = ctx.createGain();
         const preGain = ctx.createGain();
-        const distNode = ctx.createWaveShaper();
-        const bitNode = ctx.createWaveShaper();
         const filter = ctx.createBiquadFilter();
         const slicerGain = ctx.createGain();
         const panner = ctx.createStereoPanner();
-        const lfoOsc = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
+        const distNode = ctx.createWaveShaper();
+        const bitNode = ctx.createWaveShaper();
+        // const lfoOsc = ctx.createOscillator();
+        // const lfoGain = ctx.createGain();
         osc.type = "sawtooth";
         subOsc.type = "square";
         upOsc.type = "sawtooth";
@@ -547,9 +711,9 @@ const SlicerApp = () => {
         filter.Q.value = 5;
         slicerGain.gain.value = 0;
         panner.pan.value = panValue;
-        lfoOsc.type = lfoConfig.wave;
-        lfoOsc.frequency.value = lfoConfig.rate;
-        lfoGain.gain.value = lfoConfig.depth;
+        // lfoOsc.type = lfoConfig.wave;
+        // lfoOsc.frequency.value = lfoConfig.rate;
+        // lfoGain.gain.value = lfoConfig.depth;
         osc.connect(preGain);
         subOsc.connect(subGain);
         subGain.connect(preGain);
@@ -561,12 +725,12 @@ const SlicerApp = () => {
         filter.connect(slicerGain);
         slicerGain.connect(panner);
         panner.connect(masterIn);
-        lfoOsc.connect(lfoGain);
-        lfoGain.connect(filter.frequency);
+        // lfoOsc.connect(lfoGain);
+        // lfoGain.connect(filter.frequency);
         osc.start();
         subOsc.start();
         upOsc.start();
-        lfoOsc.start();
+        // lfoOsc.start();
         return {
           osc,
           subOsc,
@@ -574,12 +738,12 @@ const SlicerApp = () => {
           subGain,
           upGain,
           preGain,
-          distNode,
-          bitNode,
           filter,
           slicerGain,
-          lfoOsc,
-          lfoGain,
+          distNode,
+          bitNode,
+          // lfoOsc,
+          // lfoGain,
         };
       };
       nodes.current.ch1 = createChain(-0.8);
@@ -591,56 +755,47 @@ const SlicerApp = () => {
     if (isPlaying) {
       initAudio();
       if (audioCtx.current.state === "suspended") audioCtx.current.resume();
-      const stepDuration = 60 / bpm / 4;
+      const divider = bossParams.divider[1] || 4;
+      const stepDuration = (60 / bpm) / (divider / 2);      
       timerRef.current = setInterval(() => {
         setCurrentStep((prev) => {
-          const stepCountCh1 = stepNumber[bossParams.slicer1Header[3]];
-          const stepCountCh2 = stepNumber[bossParams.slicer2Header[3]];
-
+          const currentParams = bossParamsRef.current;
+          const stepCountCh1 = stepNumber[currentParams.slicer1Header[3]];
+          const stepCountCh2 = stepNumber[currentParams.slicer2Header[3]];
           const maxSteps = Math.max(stepCountCh1, stepCountCh2);
-
-          const nextStep = (prev + 1) % maxSteps;  
-  
-          const swing = 0.1; // 10%
-
-          const isOffBeat = nextStep % 2 === 1;
-          const swingOffset = isOffBeat ? stepDuration * swing : 0;
-          const time = audioCtx.current.currentTime + swingOffset;        
-
+          const nextStep = (prev + 1) % maxSteps;
           const triggerStep = (stepData, channelNodes) => {
             const { osc, subOsc, upOsc, filter, slicerGain } = channelNodes;
             if (stepData.level === 0) return;
-
+            const beat = currentParams.beat;
+            const groove = beat[1] ? 0.02 : 0;
+            const timeOffset = (Math.random() - 0.5) * groove;
+            const now = audioCtx.current.currentTime;
+            const time = Math.max(now, now + timeOffset);            
             const totalPitch = stepData.pitch + Number(synthConfig.pitch);
             const freq = 220 * Math.pow(2, totalPitch / 12);
+            const filterBaseFreq = 100 + stepData.filter * 39;
+            const isAccentStep = beat[0] && (nextStep % 4 === 0);
+            const accentBoost = isAccentStep ? 1.3 : 1;
+            const targetVolume = (stepData.level / 100) * accentBoost;            
+            const attackDuration = stepDuration * (attack / 100);
+            const stepBaseLength = stepData.length !== undefined ? stepData.length : 50;
+            const finalLengthRatio = (stepBaseLength / 100) * (duty / 100);
+            let releaseTime = time + stepDuration * finalLengthRatio;
             osc.frequency.setValueAtTime(freq, time);
             subOsc.frequency.setValueAtTime(freq / 2, time);
             upOsc.frequency.setValueAtTime(freq * 2, time);
-
-            const filterBaseFreq = 100 + stepData.filter * 39;
             filter.frequency.setValueAtTime(filterBaseFreq, time);
-            // filter.frequency.linearRampToValueAtTime(
-            //   nextFilterFreq,
-            //   time + stepDuration
-            // );
-            const targetVolume = stepData.level / 100;
-            const attackTime = time + stepDuration * (attack / 100);
-
-            const stepBaseLength =
-              stepData.length !== undefined ? stepData.length : 50;
-            const finalLengthRatio = (stepBaseLength / 100) * (duty / 100);
-
-            let releaseTime = time + stepDuration * finalLengthRatio;
             if (releaseTime > time + stepDuration)
               releaseTime = time + stepDuration - 0.01;
-
             const shape = (t) => Math.pow(t, 3); // tweakable
-
             slicerGain.gain.setValueAtTime(0, time);
-
             for (let i = 0; i <= 1; i += 0.1) {
-              const t = time + i * attackTime;
+              const t = time + i * attackDuration;
+              slicerGain.gain.setValueAtTime(targetVolume, releaseTime);
+              slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); // Smooth 50ms fade out to avoid clicking
               slicerGain.gain.setValueAtTime(shape(i) * targetVolume, t);
+              // Add this right after the attack `for` loop
             }
           };
           if (nextStep < ch1Steps.length) {
@@ -666,7 +821,7 @@ const SlicerApp = () => {
       }
     }
     return () => clearInterval(timerRef.current);
-  }, [isPlaying, bpm, attack, duty, synthConfig.pitch, ch1Steps, ch2Steps]);
+  }, [isPlaying, bpm, attack, duty, synthConfig.pitch, ch1Steps, ch2Steps, bossParams.divider[1]]);
 
   const updateStep = (channel, index, field, value) => {
     const val = Number(value);
@@ -1014,7 +1169,7 @@ const SlicerApp = () => {
             color: "#0FF",
           }}
         >
-          ☣︎ Global Effects & Routing (Click to expand)
+          ☣︎ Global Effects & Routing
         </summary>
         <div style={{ padding: "15px" }}>
           <p
@@ -1038,9 +1193,9 @@ const SlicerApp = () => {
           >
             {renderGenericEffect("Mixer", "mixer", [
               "Ch2 Bypass",
-              "Param 1",
+              "Enable wet signal",
               "Effect Level",
-              "Param 3",
+              "Enable dry signal",
               "Direct Level",
             ])}
             {renderGenericEffect("Divider", "divider")}

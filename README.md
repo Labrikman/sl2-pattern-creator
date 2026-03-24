@@ -1,3 +1,38 @@
+# 🎸 SL-2 TSL Editor
+
+Editor of patterns of the mysterious BOSS SL2 pedal that I like so mush. Some projets cover this topic, but I provide some tools to test the basic configuration before importation of TSL file (wait for it... an oscillator).
+
+## Description
+
+A free, open-source web editor for the **Boss SL-2 Slicer** pedal. Create, preview, and export your custom slicing patterns directly from your browser!
+
+## Live Demo
+
+**[Try the SL-2 Editor here](https://Labrikman.github.io/sl2-pattern-creator)**
+
+## Features
+
+- **Visual Sequencer:** Edit Channel 1 & 2 steps intuitively (volume, pitch, filter, length).
+- **Real-time Audio Preview:** Hear your patterns instantly directly in the browser thanks to the Web Audio API.
+- **TSL Import/Export:** Seamlessly load and save `.tsl` files fully compatible with Boss Tone Studio.
+- **Global FX Control:** Tweak advanced routing, Mixer, Compressor, EQ, Noise Suppressor, and modulation effects (Phaser, Flanger, Tremolo).
+- **Pattern Randomizer:** Instantly generate new rhythmic ideas and effects combinations.
+
+## Tech Stack
+
+- **React:** UI and component state management.
+- **Web Audio API:** Custom synthesis, envelope following, and real-time DSP.
+- **JavaScript:** TSL hex data parsing and formatting.
+
+## Local Installation
+
+If you want to run this project locally or contribute to the code:
+
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/Labrikman/sl2-pattern-creator.git](https://github.com/Labrikman/sl2-pattern-creator.git)
+   ```
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
@@ -69,40 +104,13 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
 
-# 🎛️ Boss SL-2 TSL Editor Pro
+## Contributing
 
-Une application web avancée construite avec React pour créer, éditer, prévisualiser et exporter des patches personnalisés (fichiers `.tsl`) pour la pédale d'effet **Boss SL-2 Slicer**.
+Contributions, issues, and feature requests are welcome!
+Feel free to check the issues page if you want to contribute.
 
-L'application intègre un moteur de synthèse audio (Web Audio API) qui permet de prévisualiser vos séquences rythmiques directement dans le navigateur avant de les envoyer dans votre pédale via Boss Tone Studio.
+## License
 
----
+This project is MIT licensed. Built with ❤️ for the synth & guitar community.
 
-## ✨ Fonctionnalités Principales
-
-* **🔁 Import / Export natif `.tsl` :** Lisez et générez des fichiers parfaitement compatibles avec le logiciel officiel Boss Tone Studio.
-* **🎹 Moteur Audio Intégré :** Écoutez vos patterns en temps réel. Le moteur inclut un synthétiseur basique avec Sub/Up Octaves, Distortion, Bitcrusher, LFO, Delay et Reverb pour simuler au mieux le rendu final.
-* **🎚️ Séquenceur 24-Pas Avancé :** * Édition indépendante des Canaux 1 (L) et 2 (R).
-  * Contrôle précis par pas : Volume, Pitch (-12/+12), Filtre/Montant d'effet, et Longueur (Duty).
-  * Interface épurée : Cliquez sur un pas de la grille pour révéler ses paramètres.
-* **🎛️ Paramètres Exhaustifs de la SL-2 :**
-  * **Slicer Header :** Choix du Pattern, de la longueur de séquence (8, 12, 16, 24) et du Type d'Effet (Pitch, Flanger, Phaser, Sweep, Filter, Ring).
-  * **Advanced Channel FX :** Paramétrage profond des sous-effets (Phaser, Flanger, Tremolo, Overtone).
-  * **Global Routing :** Accès total aux réglages globaux souvent cachés (Mixer, Divider, Compressor, Parametric EQ, Noise Suppressor).
-* **⚡ Outils de Workflow :**
-  * **Bouton Randomize (🎲) :** Génération algorithmique et musicale de patterns aléatoires pour l'inspiration immédiate.
-  * **Copy to Channel (📋) :** Clonez instantanément un canal vers l'autre pour créer rapidement une base stéréo cohérente.
-
----
-
-## 🚀 Installation & Lancement
-
-Ce projet est construit avec **React**. Pour le faire tourner en local sur votre machine :
-
-### Prérequis
-* [Node.js](https://nodejs.org/) installé sur votre machine.
-
-### Étapes
-1. Clonez ce dépôt :
-   ```bash
-   git clone [https://github.com/votre-nom-utilisateur/sl2-tsl-editor-pro.git](https://github.com/votre-nom-utilisateur/sl2-tsl-editor-pro.git)
-   cd sl2-tsl-editor-pro
+# Happy hacking and weird creation

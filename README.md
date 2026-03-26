@@ -18,6 +18,22 @@ A free, open-source web editor for the **Boss SL-2 Slicer** pedal. Create, previ
 - **Global FX Control:** Tweak advanced routing, Mixer, Compressor, EQ, Noise Suppressor, and modulation effects (Phaser, Flanger, Tremolo).
 - **Pattern Randomizer:** Instantly generate new rhythmic ideas and effects combinations.
 
+### How to Contribute a Preset
+
+Got a killer slicing pattern or ambient swell you want to share with the world? We'd love to add it to the built-in "Community Presets" dropdown! 
+
+Here is how you can submit your own `.tsl` patch:
+
+1. **Export your patch:** Use the "EXPORT .TSL" button in the app to save your creation. Make sure it has a descriptive name!
+2. **Upload the file:** Place your new `.tsl` file inside the `public/presets/` folder of this repository.
+3. **Update the index:** Open the `src/presets/presets-manager.js` file and add your preset to the list. Please follow the exact JSON format:
+   ```json
+   [
+      { label: "FIRST_PRESET", url: process.env.PUBLIC_URL + "/presets/first_preset.tsl" },
+      { label: "pattern-interesting", url: process.env.PUBLIC_URL + "/presets/pattern-interesting.tsl" },
+   ]
+   ```
+
 ## Tech Stack
 
 - **React:** UI and component state management.

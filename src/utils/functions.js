@@ -1,0 +1,87 @@
+// ==========================================
+// 1. AUDIO UTILITIES (Math functions)
+// ==========================================
+
+const makeDistortionCurve = (amount) => {
+  if (amount === 0) return null;
+  const k = typeof amount === "number" ? amount : 50;
+  const n_samples = 44100;
+  const curve = new Float32Array(n_samples);
+  const deg = Math.PI / 180;
+  for (let i = 0; i < n_samples; ++i) {
+    const x = (i * 2) / n_samples - 1;
+    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+};
+
+const makeBitCrusherCurve = (bits) => {
+  if (bits >= 16) return null;
+  const n_samples = 44100;
+  const curve = new Float32Array(n_samples);
+  const steps = Math.pow(2, bits);
+  for (let i = 0; i < n_samples; ++i) {
+    const x = (i * 2) / n_samples - 1;
+    curve[i] = Math.round(x * steps) / steps;
+  }
+  return curve;
+};
+
+const mapFreq = (val, min = 20, max = 12000) => {
+  const norm = val / 100;
+  return min * Math.pow(max / min, norm);
+};
+
+const mapGain = (val) => {
+  return (val - 50) * 0.5; // -25dB → +25dB
+};
+
+const mapQ = (val) => {
+  return 0.5 + (val / 100) * 9.5; // 0.5 → 10
+};
+// const generateReverbBuffer = (audioCtx, type) => {
+//   const sampleRate = audioCtx.sampleRate;
+//   const duration = type === "hall" ? 2.5 : type === "room" ? 0.7 : 1.2;
+//   const decay = type === "hall" ? 2.0 : type === "room" ? 5.0 : 3.0;
+//   const length = sampleRate * duration;
+//   const impulse = audioCtx.createBuffer(2, length, sampleRate);
+//   const left = impulse.getChannelData(0);
+//   const right = impulse.getChannelData(1);
+//   for (let i = 0; i < length; i++) {
+//     const multiplier = Math.pow(1 - i / length, decay);
+//     left[i] = (Math.random() * 2 - 1) * multiplier;
+//     right[i] = (Math.random() * 2 - 1) * multiplier;
+//   }
+//   return impulse;
+// };
+
+// --- UI UTILITY: Dynamic effect parameter name ---
+const getEffectParamName = (effectType) => {
+  switch (Number(effectType)) {
+    case 0:
+      return "Level (Effect OFF)";
+    case 1:
+      return "Pitch Slide Amount";
+    case 2:
+      return "Flanger Depth";
+    case 3:
+      return "Phaser Depth";
+    case 4:
+      return "Sweep Amount";
+    case 5:
+      return "Filter Freq / Band";
+    case 6:
+      return "Ring Mod Freq";
+    default:
+      return "Effect Amount";
+  }
+};
+
+export {
+  makeDistortionCurve,
+  makeBitCrusherCurve,
+  mapFreq,
+  mapGain,
+  mapQ,
+  getEffectParamName,
+};  

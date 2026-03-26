@@ -14,7 +14,7 @@ const generateEmptyTrack = () =>
     length: 50,
   }));
 
-  const makeDistortionCurve = (amount) => {
+const makeDistortionCurve = (amount) => {
   if (amount === 0) return null;
   const k = typeof amount === "number" ? amount : 50;
   const n_samples = 44100;
@@ -180,7 +180,6 @@ const SlicerApp = () => {
 
     const randomEff1 = rand(0, 6);
     const randomEff2 = rand(0, 6);
-
 
     const randomizeFxArray = (arr) =>
       arr.map((val, idx) => (idx > 0 ? rand(0, 100) : val));
@@ -497,14 +496,14 @@ const SlicerApp = () => {
       // channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
     });
   }, [
-    masterVolume, 
-    bossParams.mixer, 
-    bossParams.comp, 
-    bossParams.ns, 
+    masterVolume,
+    bossParams.mixer,
+    bossParams.comp,
+    bossParams.ns,
     bossParams.peq,
-    synthConfig
-    // lfoConfig, 
-    // fx, 
+    synthConfig,
+    // lfoConfig,
+    // fx,
   ]);
 
   // --- ENVELOPE FOLLOWER (NOISE SUPPRESSOR) ---
@@ -516,12 +515,16 @@ const SlicerApp = () => {
       if (m.gateAnalyser && m.noiseGate && isPlaying) {
         const ns = bossParams.ns;
         const isEnabled = ns[0] === 1;
-        const thresholdParam = ns[1] / 100; 
+        const thresholdParam = ns[1] / 100;
         const releaseParam = ns[2] / 100; // Le paramètre Release de l'interface
 
         if (!isEnabled) {
           // Si le Gate est éteint, la porte est grande ouverte (gain = 1)
-          m.noiseGate.gain.setTargetAtTime(1, audioCtx.current.currentTime, 0.05);
+          m.noiseGate.gain.setTargetAtTime(
+            1,
+            audioCtx.current.currentTime,
+            0.05,
+          );
         } else {
           // On récupère le signal audio du moment
           const dataArray = new Float32Array(m.gateAnalyser.frequencyBinCount);
@@ -545,11 +548,15 @@ const SlicerApp = () => {
           } else {
             // Le son est trop faible : on referme doucement la porte selon ton réglage Release
             // On ne descend pas à 0 parfait pour éviter les artefacts audios (0.001 est idéal)
-            m.noiseGate.gain.setTargetAtTime(0.001, time, releaseParam > 0 ? releaseParam : 0.05);
+            m.noiseGate.gain.setTargetAtTime(
+              0.001,
+              time,
+              releaseParam > 0 ? releaseParam : 0.05,
+            );
           }
         }
       }
-      
+
       // On boucle à la prochaine frame
       animationId = requestAnimationFrame(trackEnvelope);
     };
@@ -576,11 +583,11 @@ const SlicerApp = () => {
       masterOut.gain.value = masterVolume / 100;
       masterOut.connect(ctx.destination);
       // COMPRESSOR
-      const compressor = ctx.createDynamicsCompressor();      
+      const compressor = ctx.createDynamicsCompressor();
       const noiseGate = ctx.createGain();
       const gateAnalyser = ctx.createAnalyser();
       gateAnalyser.fftSize = 512;
-      gateAnalyser.smoothingTimeConstant = 0.8; 
+      gateAnalyser.smoothingTimeConstant = 0.8;
       // INPUT BOSS PARAMS
       masterIn.connect(compressor);
       // COMP → GATE & ANALYSEUR
@@ -684,7 +691,7 @@ const SlicerApp = () => {
         eqOutputGain,
         dryGain,
         wetGain,
-        gateAnalyser
+        gateAnalyser,
         // currentReverbType: fx.reverbType,
         // delayNode,
         // delayFeedback,
@@ -768,7 +775,7 @@ const SlicerApp = () => {
       initAudio();
       if (audioCtx.current.state === "suspended") audioCtx.current.resume();
       const divider = bossParams.divider[1] || 4;
-      const stepDuration = (60 / bpm) / (divider / 2);      
+      const stepDuration = 60 / bpm / (divider / 2);
       timerRef.current = setInterval(() => {
         setCurrentStep((prev) => {
           const currentParams = bossParamsRef.current;
@@ -783,15 +790,16 @@ const SlicerApp = () => {
             const groove = beat[1] ? 0.02 : 0;
             const timeOffset = (Math.random() - 0.5) * groove;
             const now = audioCtx.current.currentTime;
-            const time = Math.max(now, now + timeOffset);            
+            const time = Math.max(now, now + timeOffset);
             const totalPitch = stepData.pitch + Number(synthConfig.pitch);
             const freq = 220 * Math.pow(2, totalPitch / 12);
             const filterBaseFreq = 100 + stepData.filter * 39;
-            const isAccentStep = beat[0] && (nextStep % 4 === 0);
+            const isAccentStep = beat[0] && nextStep % 4 === 0;
             const accentBoost = isAccentStep ? 1.3 : 1;
-            const targetVolume = (stepData.level / 100) * accentBoost;            
+            const targetVolume = (stepData.level / 100) * accentBoost;
             const attackDuration = stepDuration * (attack / 100);
-            const stepBaseLength = stepData.length !== undefined ? stepData.length : 50;
+            const stepBaseLength =
+              stepData.length !== undefined ? stepData.length : 50;
             const finalLengthRatio = (stepBaseLength / 100) * (duty / 100);
             let releaseTime = time + stepDuration * finalLengthRatio;
             osc.frequency.setValueAtTime(freq, time);
@@ -833,7 +841,16 @@ const SlicerApp = () => {
       }
     }
     return () => clearInterval(timerRef.current);
-  }, [isPlaying, bpm, attack, duty, synthConfig.pitch, ch1Steps, ch2Steps, bossParams.divider[1]]);
+  }, [
+    isPlaying,
+    bpm,
+    attack,
+    duty,
+    synthConfig.pitch,
+    ch1Steps,
+    ch2Steps,
+    bossParams.divider[1],
+  ]);
 
   const updateStep = (channel, index, field, value) => {
     const val = Number(value);
@@ -1087,9 +1104,10 @@ const SlicerApp = () => {
           </div>
           {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
           <a
-            href='https://ko-fi.com/TON_LIEN_ICI'
+            href='https://ko-fi.com/labrikman'
             target='_blank'
             rel='noopener noreferrer'
+            title='If you like my work and you want to improve this project support me ❤️‍🔥'
             style={{
               padding: "8px 15px",
               background: "#ffffff",
@@ -1377,7 +1395,7 @@ const SlicerApp = () => {
                     <select
                       value={bossParams[headerKey][3]}
                       onChange={(e) =>
-                        updateBossParam(headerKey, 3, e.target.value) 
+                        updateBossParam(headerKey, 3, e.target.value)
                       }
                       style={{
                         background: "#111",
@@ -1753,11 +1771,13 @@ const SlicerApp = () => {
           Built with ❤️ for the synth & guitar community. Free and open-source.
         </p>
         <p style={{ margin: 0 }}>
-          Need more gear? Support this project by shopping through these
-          affiliate links at no extra cost to you:
+          {/* Need more gear? Support this project by shopping through these
+          affiliate links at no extra cost to you: */}
+          Thank you BOSS for providing us with quality material, I hope this
+          application will be useful and support your work
           <br />
           <a
-            href='TON_LIEN_BOSS_ICI'
+            href='https://www.boss.info/fr/products/sl-2/'
             target='_blank'
             rel='noopener noreferrer'
             style={{
@@ -1767,47 +1787,6 @@ const SlicerApp = () => {
             }}
           >
             BOSS
-          </a>{" "}
-          |
-          <a
-            href='TON_LIEN_THOMANN_ICI'
-            target='_blank'
-            rel='noopener noreferrer'
-            style={{
-              color: "#00e5ff",
-              textDecoration: "none",
-              marginLeft: "8px",
-              marginRight: "8px",
-            }}
-          >
-            Thomann
-          </a>{" "}
-          |
-          <a
-            href='TON_LIEN_REVERB_ICI'
-            target='_blank'
-            rel='noopener noreferrer'
-            style={{
-              color: "#00e5ff",
-              textDecoration: "none",
-              marginLeft: "8px",
-              marginRight: "8px",
-            }}
-          >
-            Reverb
-          </a>{" "}
-          |
-          <a
-            href='TON_LIEN_AMAZON_ICI'
-            target='_blank'
-            rel='noopener noreferrer'
-            style={{
-              color: "#00e5ff",
-              textDecoration: "none",
-              marginLeft: "8px",
-            }}
-          >
-            Amazon
           </a>
         </p>
       </div>

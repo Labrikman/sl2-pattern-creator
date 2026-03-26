@@ -2,6 +2,7 @@
   "name": "boss-sl2-pattern-creator",
   "version": "0.1.0",
   "private": false,
+  "homepage": "https://Labrikman.github.io/sl2-pattern-creator",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -12,6 +13,8 @@
     "react-scripts": "^5.0.1"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

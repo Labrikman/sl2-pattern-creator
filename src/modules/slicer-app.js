@@ -320,75 +320,87 @@ const SlicerApp = () => {
     link.click();
   };
 
+  // --- FONCTION PARTAGÉE POUR APPLIQUER LES DONNÉES TSL ---
+  const applyTSLData = (jsonString) => {
+    try {
+      const json = JSON.parse(jsonString);
+      if (json.name) setLiveSetName(json.name);
+
+      const patch = json.data[0][0].paramSet;
+      const fromHex = (h) => parseInt(h, 16);
+      const parseArray = (hexArray) => (hexArray ? hexArray.map(fromHex) : []);
+
+      const importedName = patch["PATCH%COM"]
+        .map((h) => String.fromCharCode(fromHex(h)))
+        .join("")
+        .trim();
+
+      const parseSlicer = (data) =>
+        Array.from({ length: 24 }, (_, i) => ({
+          length: fromHex(data[4 + i]),
+          level: fromHex(data[28 + i]),
+          filter: fromHex(data[52 + i]),
+          pitch: fromHex(data[76 + i]) - 12,
+        }));
+
+      setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
+      setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));
+
+      const sl1Data = patch["PATCH%SLICER(1)"];
+      const sl2Data = patch["PATCH%SLICER(2)"];
+      
+      setBossParams({
+        patchName: importedName || "IMPORTED PATCH",
+        slicer1Header: [fromHex(sl1Data[0]), fromHex(sl1Data[1]), fromHex(sl1Data[2]), fromHex(sl1Data[3])],
+        slicer2Header: [fromHex(sl2Data[0]), fromHex(sl2Data[1]), fromHex(sl2Data[2]), fromHex(sl2Data[3])],
+        comp: parseArray(patch["PATCH%COMP"]),
+        divider: parseArray(patch["PATCH%DIVIDER"]),
+        mixer: parseArray(patch["PATCH%MIXER"]),
+        ns: parseArray(patch["PATCH%NS"]),
+        peq: parseArray(patch["PATCH%PEQ"]),
+        beat: parseArray(patch["PATCH%BEAT"]),
+        phaser1: parseArray(patch["PATCH%PHASER(1)"]),
+        phaser2: parseArray(patch["PATCH%PHASER(2)"]),
+        flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
+        flanger2: parseArray(patch["PATCH%FLANGER(2)"]),
+        tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
+        tremolo2: parseArray(patch["PATCH%TREMOLO(2)"]),
+        overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
+        overtone2: parseArray(patch["PATCH%OVERTONE(2)"]),
+      });
+    } catch (err) {
+      alert("Error parsing .tsl data.");
+    }
+  };
+
   const importTSL = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target.result);
-        if (json.name) setLiveSetName(json.name);
-
-        const patch = json.data[0][0].paramSet;
-        const fromHex = (h) => parseInt(h, 16);
-        const parseArray = (hexArray) =>
-          hexArray ? hexArray.map(fromHex) : [];
-
-        const importedName = patch["PATCH%COM"]
-          .map((h) => String.fromCharCode(fromHex(h)))
-          .join("")
-          .trim();
-
-        const parseSlicer = (data) =>
-          Array.from({ length: 24 }, (_, i) => ({
-            length: fromHex(data[4 + i]),
-            level: fromHex(data[28 + i]),
-            filter: fromHex(data[52 + i]),
-            pitch: fromHex(data[76 + i]) - 12,
-          }));
-
-        setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
-        setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));
-
-        const sl1Data = patch["PATCH%SLICER(1)"];
-        const sl2Data = patch["PATCH%SLICER(2)"];
-        const stepIndex1 = fromHex(sl1Data[3]);
-        const stepIndex2 = fromHex(sl2Data[3]);
-        setBossParams({
-          patchName: importedName || "IMPORTED PATCH",
-          slicer1Header: [
-            fromHex(sl1Data[0]),
-            fromHex(sl1Data[1]),
-            fromHex(sl1Data[2]),
-            stepIndex1,
-          ],
-          slicer2Header: [
-            fromHex(sl2Data[0]),
-            fromHex(sl2Data[1]),
-            fromHex(sl2Data[2]),
-            stepIndex2,
-          ],
-          comp: parseArray(patch["PATCH%COMP"]),
-          divider: parseArray(patch["PATCH%DIVIDER"]),
-          mixer: parseArray(patch["PATCH%MIXER"]),
-          ns: parseArray(patch["PATCH%NS"]),
-          peq: parseArray(patch["PATCH%PEQ"]),
-          beat: parseArray(patch["PATCH%BEAT"]),
-          phaser1: parseArray(patch["PATCH%PHASER(1)"]),
-          phaser2: parseArray(patch["PATCH%PHASER(2)"]),
-          flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
-          flanger2: parseArray(patch["PATCH%FLANGER(2)"]),
-          tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
-          tremolo2: parseArray(patch["PATCH%TREMOLO(2)"]),
-          overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
-          overtone2: parseArray(patch["PATCH%OVERTONE(2)"]),
-        });
-      } catch (err) {
-        alert("Error reading .tsl file.");
-      }
-    };
+    reader.onload = (event) => applyTSLData(event.target.result); // Utilise la nouvelle fonction
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  // --- GESTION DES PRESETS DE LA COMMUNAUTÉ ---
+  const COMMUNITY_PRESETS = [
+    { label: "--- Select a Community Preset ---", url: "" },
+    { label: "Classic 8-Step Chopper", url: process.env.PUBLIC_URL + "/presets/classic_chopper.tsl" },
+    { label: "Ambient Swell", url: process.env.PUBLIC_URL + "/presets/ambient_swell.tsl" },
+    // Tu ajouteras les futurs presets ici
+  ];
+
+  const loadPresetFromUrl = async (url) => {
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Network response was not ok");
+      const text = await response.text();
+      applyTSLData(text);
+    } catch (error) {
+      console.error("Failed to load preset:", error);
+      alert("Could not load the selected preset. Make sure the file exists in the repository.");
+    }
   };
 
   // --- AUDIO ENGINE ---
@@ -928,6 +940,7 @@ const SlicerApp = () => {
         <h1 style={{ margin: 0, color: "#00e5ff", fontSize: "24px" }}>
           SL-2 TSL Editor
         </h1>
+        <p style={{ color: "#656565", fontSize: "10px" }}>by Labrikman</p>
         <div
           style={{
             display: "flex",
@@ -1025,6 +1038,53 @@ const SlicerApp = () => {
           >
             ↑ EXPORT .TSL
           </button>
+          {/* --- COMMUNITY PRESETS DROPDOWN --- */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "#222",
+            padding: "5px 10px",
+            borderRadius: "4px",
+            border: "1px solid #444"
+          }}>
+            <span style={{ fontSize: "16px" }}>🌍</span>
+            <select
+              onChange={(e) => loadPresetFromUrl(e.target.value)}
+              style={{
+                background: "#111",
+                color: "#0FF",
+                border: "1px solid #333",
+                padding: "6px",
+                borderRadius: "4px",
+                fontSize: "12px",
+                cursor: "pointer"
+              }}
+            >
+              {COMMUNITY_PRESETS.map((preset, idx) => (
+                <option key={idx} value={preset.url}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            
+            {/* link to Pull Request */}
+            <a
+              href="https://github.com/Labrikman/sl2-pattern§creator/tree/main/public/presets"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Share your own pattern by submitting a Pull Request!"
+              style={{
+                fontSize: "11px",
+                color: "#F0F",
+                textDecoration: "none",
+                fontWeight: "bold",
+                marginLeft: "5px"
+              }}
+            >
+              + Submit PR
+            </a>
+          </div>
           {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
           <a
             href='https://ko-fi.com/TON_LIEN_ICI'

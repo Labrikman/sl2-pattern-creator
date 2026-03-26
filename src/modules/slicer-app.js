@@ -1065,7 +1065,7 @@ const SlicerApp = () => {
             borderRadius: "4px",
             border: "1px solid #444"
           }}>
-            <span style={{ fontSize: "16px" }}>🌍</span>
+            <span style={{ fontSize: "16px" }}>⚒︎</span>
             <select
               onChange={(e) => loadPresetFromUrl(e.target.value)}
               style={{
@@ -1087,7 +1087,7 @@ const SlicerApp = () => {
             
             {/* link to Pull Request */}
             <a
-              href="https://github.com/Labrikman/sl2-pattern§creator/tree/main/public/presets"
+              href="https://github.com/Labrikman/sl2-pattern-creator/tree/main/public/presets"
               target="_blank"
               rel="noopener noreferrer"
               title="Share your own pattern by submitting a Pull Request!"

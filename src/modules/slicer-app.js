@@ -248,13 +248,15 @@ const SlicerApp = () => {
         .join("")
         .trim();
 
-      const parseSlicer = (data) =>
-        Array.from({ length: 24 }, (_, i) => ({
+      const parseSlicer = (data) => {
+        const steps = Array.from({ length: 24 }, (_, i) => ({
           length: fromHex(data[4 + i]),
           level: fromHex(data[28 + i]),
           filter: fromHex(data[52 + i]),
           pitch: fromHex(data[76 + i]) - 12,
         }));
+        return steps.reverse(); // Inverse l'ordre des 24 pas
+      };
 
       setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
       setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));

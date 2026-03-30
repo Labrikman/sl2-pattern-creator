@@ -22,6 +22,10 @@ const SlicerApp = () => {
     bitDepth: 16,
     octSub: 0,
     octUp: 0,
+    distEnabled: false,
+    bitEnabled: false,
+    subEnabled: false,
+    upEnabled: false,
   });
   // const [lfoConfig, setLfoConfig] = useState({
   //   wave: "sine",
@@ -388,15 +392,42 @@ const SlicerApp = () => {
     ["ch1", "ch2"].forEach((ch) => {
       const channel = nodes.current[ch];
       if (!channel.osc) return;
-      channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.05);
-      channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
-      channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
-      channel.subGain.gain.setTargetAtTime(
-        synthConfig.octSub / 100,
-        time,
-        0.05,
-      );
-      channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
+      const time = audioCtx.current.currentTime;
+      // 1. Gains des Octaves (si désactivé, on force à 0)
+      const subVol = synthConfig.subEnabled ? synthConfig.octSub / 100 : 0;
+      const upVol = synthConfig.upEnabled ? synthConfig.octUp / 100 : 0;
+      
+      channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.01);
+      channel.subGain.gain.setTargetAtTime(subVol, time, 0.01);
+      channel.upGain.gain.setTargetAtTime(upVol, time, 0.01);
+
+      // 2. Distortion (si désactivé, on envoie une courbe neutre/null)
+      channel.distNode.curve = synthConfig.distEnabled 
+        ? makeDistortionCurve(synthConfig.dist * 4) 
+        : null;
+
+      // 3. Bit Depth (si désactivé, on force à 16 bits pour un son pur)
+      channel.bitNode.curve = synthConfig.bitEnabled 
+        ? makeBitCrusherCurve(synthConfig.bitDepth) 
+        : makeBitCrusherCurve(16);
+      // channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.05);
+      // channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
+      // channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
+      // channel.subGain.gain.setTargetAtTime(synthConfig.octSub / 100, time, 0.05);
+      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
+      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
+      // 1. Mise à jour des gains d'entrée et octaves
+      // channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.01);
+      // channel.subGain.gain.setTargetAtTime(synthConfig.octSub / 100, time, 0.01);
+      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.01);
+
+      // // 2. Mise à jour de la Distortion (WaveShaper 1)
+      // const distCurve = makeDistortionCurve(synthConfig.dist * 4);
+      // channel.distNode.curve = distCurve;
+
+      // // 3. Mise à jour du Bit Depth (WaveShaper 2) - FIX ICI
+      // const bitCurve = makeBitCrusherCurve(synthConfig.bitDepth);
+      // channel.bitNode.curve = bitCurve;
       // channel.lfoOsc.type = lfoConfig.wave;
       // channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
       // channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
@@ -1135,7 +1166,145 @@ const SlicerApp = () => {
           />
         </label>
       </div>
+      <details
+        style={{
+          marginBottom: "30px",
+          background: "#1a1a1a",
+          borderRadius: "8px",
+          border: "1px solid #333",
+        }}
+      >
+        <summary
+          style={{
+            padding: "15px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            color: "#f0f",
+          }}
+        >
+          ☢︎ Synth and distorsion controls
+        </summary>
+        {/* --- CONTRÔLES DU SYNTHÉTISEUR AVEC BYPASS --- */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "20px",
+            marginBottom: "20px",
+            padding: "15px",
+            background: "#1a1a1a",
+            borderRadius: "8px",
+            alignItems: "center",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#888",
+              marginTop: 0,
+              marginBottom: "20px",
+              fontStyle: "italic",
+            }}
+          >
+            ⚠︎ <strong>Sound effects</strong> These effects are out of sitting of the BOSS SL2, they are applied on the audio output of the synthesizer before being sent to the master channel. You can use them to shape your sound but they won't be saved in the .TSL patch and they won't be visible on the pedal.
+          </p>
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: "12px",
+              color: "#f0f", 
+            }}
+          >
+            Pre-Gain: {synthConfig.gain}%
+            <input
+              type='range'
+              min='0'
+              max='500' 
+              value={synthConfig.gain}
+              onChange={(e) =>
+                setSynthConfig((prev) => ({ ...prev, gain: Number(e.target.value) }))
+              }
+            />
+          </label>
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: "12px",
+              color: "#f0f", 
+            }}
+          >
+            Global Pitch: {synthConfig.pitch} st
+            <input
+              type='range'
+              min='-24'
+              max='24'
+              value={synthConfig.pitch}
+              onChange={(e) =>
+                setSynthConfig((prev) => ({ ...prev, pitch: Number(e.target.value) }))
+              }
+            />
+          </label>
+          <div style={{ borderLeft: "1px solid #444", height: "30px", marginLeft: "10px", marginRight: "10px" }}></div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <button 
+              onClick={() => setSynthConfig(p => ({...p, distEnabled: !p.distEnabled}))}
+              style={{ fontSize: "9px", background: synthConfig.distEnabled ? "#f0f" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            >
+              {synthConfig.distEnabled ? "DIST ON" : "DIST OFF"}
+            </button>
+            <label style={{ fontSize: "11px", color: "#f0f" }}>
+              Disto: {synthConfig.dist}%
+              <input type='range' min='0' max='100' value={synthConfig.dist}
+                onChange={(e) => setSynthConfig(p => ({ ...p, dist: Number(e.target.value) }))}
+              />
+            </label>
+          </div>
+          {/* --- CONTRÔLES DU SYNTHÉTISEUR --- */}
+          {/* Bitcrush avec Bouton */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <button 
+              onClick={() => setSynthConfig(p => ({...p, bitEnabled: !p.bitEnabled}))}
+              style={{ fontSize: "9px", background: synthConfig.bitEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            >
+              {synthConfig.bitEnabled ? "BIT ON" : "BIT OFF"}
+            </button>
+            <label style={{ fontSize: "11px", color: "#00e5ff" }}>
+              Bits: {synthConfig.bitDepth}
+              <input type='range' min='1' max='16' value={synthConfig.bitDepth}
+                onChange={(e) => setSynthConfig(p => ({ ...p, bitDepth: Number(e.target.value) }))}
+              />
+            </label>
+          </div>
 
+          {/* Octaves avec Boutons */}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <button 
+                onClick={() => setSynthConfig(p => ({...p, subEnabled: !p.subEnabled}))}
+                style={{ fontSize: "9px", background: synthConfig.subEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+              >
+                SUB {synthConfig.subEnabled ? "ON" : "OFF"}
+              </button>
+              <input type='range' min='0' max='100' value={synthConfig.octSub} style={{width: "60px"}}
+                onChange={(e) => setSynthConfig(p => ({ ...p, octSub: Number(e.target.value) }))}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <button 
+                onClick={() => setSynthConfig(p => ({...p, upEnabled: !p.upEnabled}))}
+                style={{ fontSize: "9px", background: synthConfig.upEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+              >
+                UP {synthConfig.upEnabled ? "ON" : "OFF"}
+              </button>
+              <input type='range' min='0' max='100' value={synthConfig.octUp} style={{width: "60px"}}
+                onChange={(e) => setSynthConfig(p => ({ ...p, octUp: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+        </div>
+      </details>
       {/* --- DROPDOWN: GLOBAL PARAMETERS --- */}
       <details
         style={{

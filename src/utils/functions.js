@@ -3,7 +3,6 @@
 // ==========================================
 
 const makeDistortionCurve = (amount) => {
-  if (amount === 0) return null;
   const k = typeof amount === "number" ? amount : 50;
   const n_samples = 44100;
   const curve = new Float32Array(n_samples);

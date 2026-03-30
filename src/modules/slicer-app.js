@@ -863,7 +863,7 @@ const SlicerApp = () => {
         }}
       >
         <h1 style={{ margin: 0, color: "#00e5ff", fontSize: "24px" }}>
-          SL-2 TSL Editor
+          SL-2 TSL Creator
         </h1>
         <p style={{ color: "#656565", fontSize: "10px" }}>by Labrikman</p>
         <div

@@ -2,25 +2,37 @@
 // 1. AUDIO UTILITIES (Math functions)
 // ==========================================
 
+// --- DISTORTION ULTRA PUISSANTE (NORMALISÉE) ---
 const makeDistortionCurve = (amount) => {
-  const k = typeof amount === "number" ? amount : 50;
+  // Si la distorsion est à 0, on renvoie une ligne droite (bypass propre)
+  if (amount <= 0) return new Float32Array([-1, 1]); 
+  
+  const k = amount;
   const n_samples = 44100;
   const curve = new Float32Array(n_samples);
   const deg = Math.PI / 180;
+
+  // On calcule le pic maximum de la formule pour normaliser le son
+  const peak = ((3 + k) * 1 * 20 * deg) / (Math.PI + k * 1);
+
   for (let i = 0; i < n_samples; ++i) {
     const x = (i * 2) / n_samples - 1;
-    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+    const y = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+    // En divisant y par peak, le son va taper exactement le mur des 100% de volume
+    curve[i] = y / peak; 
   }
   return curve;
 };
 
+// --- VRAI BITCRUSHER (RÉSOLUTION D'AMPLITUDE) ---
 const makeBitCrusherCurve = (bits) => {
-  if (bits >= 16) return null;
+  // Plus le nombre de bits est bas, moins il y a d'"escaliers" de volume
+  const steps = Math.pow(2, bits); 
   const n_samples = 44100;
   const curve = new Float32Array(n_samples);
-  const steps = Math.pow(2, bits);
   for (let i = 0; i < n_samples; ++i) {
     const x = (i * 2) / n_samples - 1;
+    // On quantifie le signal sur ces escaliers
     curve[i] = Math.round(x * steps) / steps;
   }
   return curve;
@@ -76,6 +88,19 @@ const getEffectParamName = (effectType) => {
   }
 };
 
+  const loadPresetFromUrl = async (url, applyTSLData) => {
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Network response was not ok");
+      const text = await response.text();
+      applyTSLData(text);
+    } catch (error) {
+      console.error("Failed to load preset:", error);
+      alert("Could not load the selected preset. Make sure the file exists in the repository.");
+    }
+  };
+
 export {
   makeDistortionCurve,
   makeBitCrusherCurve,
@@ -83,4 +108,5 @@ export {
   mapGain,
   mapQ,
   getEffectParamName,
+  loadPresetFromUrl,
 };  

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { COMMUNITY_PRESETS } from "../presets/presets-manager";
 import { generateEmptyTrack, MAX_STEPS, stepNumber } from "../utils/constants";
-import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName } from "../utils/functions"; 
+import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName, loadPresetFromUrl } from "../utils/functions"; 
 
 // ==========================================
 // 2. MAIN COMPONENT (Application)
@@ -27,11 +27,14 @@ const SlicerApp = () => {
     subEnabled: false,
     upEnabled: false,
   });
-  // const [lfoConfig, setLfoConfig] = useState({
-  //   wave: "sine",
-  //   rate: 0.5,
-  //   depth: 0,
-  // });
+  const [audioSource, setAudioSource] = useState("synth"); // "synth" ou "guitar"
+  const mediaStreamRef = useRef(null);
+  const liveSourceNodeRef = useRef(null);
+  const [lfoConfig, setLfoConfig] = useState({
+    wave: "sine",
+    rate: 0.5,
+    depth: 0,
+  });
   // const [fx, setFx] = useState({
   //   chorusMix: 0,
   //   phaserMix: 0,
@@ -299,19 +302,6 @@ const SlicerApp = () => {
     e.target.value = "";
   };
 
-  const loadPresetFromUrl = async (url) => {
-    if (!url) return;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Network response was not ok");
-      const text = await response.text();
-      applyTSLData(text);
-    } catch (error) {
-      console.error("Failed to load preset:", error);
-      alert("Could not load the selected preset. Make sure the file exists in the repository.");
-    }
-  };
-
   // --- AUDIO ENGINE ---
   useEffect(() => {
     if (!audioCtx.current) return;
@@ -389,19 +379,44 @@ const SlicerApp = () => {
     if (m.eqOutputGain) {
       m.eqOutputGain.gain.setTargetAtTime(peq[11] / 100, time, 0.05);
     }
+    if (nodes.current.guitarIn) {
+      nodes.current.guitarIn.gain.setTargetAtTime(audioSource === "guitar" ? 1 : 0, time, 0.05);
+    }
     ["ch1", "ch2"].forEach((ch) => {
       const channel = nodes.current[ch];
-      if (!channel.osc) return;
+      if (!channel || !channel.osc) return; 
       const time = audioCtx.current.currentTime;
-      // 1. Gains des Octaves (si désactivé, on force à 0)
+      if (channel.oscMasterGain) {
+        channel.oscMasterGain.gain.setTargetAtTime(audioSource === "synth" ? 1 : 0, time, 0.05);
+      }
+      // Gains and Octaves
       const subVol = synthConfig.subEnabled ? synthConfig.octSub / 100 : 0;
       const upVol = synthConfig.upEnabled ? synthConfig.octUp / 100 : 0;
-      
-      channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.01);
+   
+      channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.05);
       channel.subGain.gain.setTargetAtTime(subVol, time, 0.01);
       channel.upGain.gain.setTargetAtTime(upVol, time, 0.01);
+      
+      // Update Distortion (WaveShaper 1)
+      const distCurve = synthConfig.distEnabled 
+        ? makeDistortionCurve(synthConfig.dist * 10) 
+        : new Float32Array([-1, 1]); 
+      channel.distNode.curve = distCurve;
+      
+      // Update Bit Depth (WaveShaper 2)
+      const bitCurve = makeBitCrusherCurve(synthConfig.bitDepth);
+      channel.bitNode.curve = bitCurve;
+      
+      channel.oscMasterGain.gain.setTargetAtTime(audioSource === "synth" ? 1 : 0, time, 0.05);
+ 
+      // LFO
+      if (channel.lfoOsc && channel.lfoGain) {
+        channel.lfoOsc.type = lfoConfig.wave;
+        channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
+        channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth * 20, time, 0.05); 
+      }
 
-      // 2. Distortion (si désactivé, on envoie une courbe neutre/null)
+      // Distortion 
       channel.distNode.curve = synthConfig.distEnabled 
         ? makeDistortionCurve(synthConfig.dist * 4) 
         : null;
@@ -410,24 +425,10 @@ const SlicerApp = () => {
       channel.bitNode.curve = synthConfig.bitEnabled 
         ? makeBitCrusherCurve(synthConfig.bitDepth) 
         : makeBitCrusherCurve(16);
-      // channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.05);
-      // channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
-      // channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
-      // channel.subGain.gain.setTargetAtTime(synthConfig.octSub / 100, time, 0.05);
-      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
-      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.05);
-      // 1. Mise à jour des gains d'entrée et octaves
-      // channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.01);
-      // channel.subGain.gain.setTargetAtTime(synthConfig.octSub / 100, time, 0.01);
-      // channel.upGain.gain.setTargetAtTime(synthConfig.octUp / 100, time, 0.01);
 
-      // // 2. Mise à jour de la Distortion (WaveShaper 1)
-      // const distCurve = makeDistortionCurve(synthConfig.dist * 4);
-      // channel.distNode.curve = distCurve;
+      channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
+      channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
 
-      // // 3. Mise à jour du Bit Depth (WaveShaper 2) - FIX ICI
-      // const bitCurve = makeBitCrusherCurve(synthConfig.bitDepth);
-      // channel.bitNode.curve = bitCurve;
       // channel.lfoOsc.type = lfoConfig.wave;
       // channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
       // channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
@@ -439,7 +440,8 @@ const SlicerApp = () => {
     bossParams.ns,
     bossParams.peq,
     synthConfig,
-    // lfoConfig,
+    audioSource,
+    lfoConfig
     // fx,
   ]);
 
@@ -515,6 +517,9 @@ const SlicerApp = () => {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       audioCtx.current = new Ctx();
       const ctx = audioCtx.current;
+      const guitarIn = ctx.createGain();
+      guitarIn.gain.value = 0; 
+      nodes.current.guitarIn = guitarIn;
       const masterIn = ctx.createGain();
       const masterOut = ctx.createGain();
       masterOut.gain.value = masterVolume / 100;
@@ -639,8 +644,9 @@ const SlicerApp = () => {
         // chorusGain,
         // phaserGain,
       };
-
+      
       const createChain = (panValue) => {
+        const oscMasterGain = ctx.createGain();
         const osc = ctx.createOscillator();
         const subOsc = ctx.createOscillator();
         const subGain = ctx.createGain();
@@ -652,11 +658,14 @@ const SlicerApp = () => {
         const panner = ctx.createStereoPanner();
         const distNode = ctx.createWaveShaper();
         const bitNode = ctx.createWaveShaper();
-        // const lfoOsc = ctx.createOscillator();
-        // const lfoGain = ctx.createGain();
+        const lfoOsc = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        oscMasterGain.gain.value = 1;
+
         osc.type = "sawtooth";
         subOsc.type = "square";
         upOsc.type = "sawtooth";
+
         subGain.gain.value = synthConfig.octSub / 100;
         upGain.gain.value = synthConfig.octUp / 100;
         preGain.gain.value = synthConfig.gain / 100;
@@ -667,26 +676,40 @@ const SlicerApp = () => {
         filter.Q.value = 5;
         slicerGain.gain.value = 0;
         panner.pan.value = panValue;
-        // lfoOsc.type = lfoConfig.wave;
-        // lfoOsc.frequency.value = lfoConfig.rate;
-        // lfoGain.gain.value = lfoConfig.depth;
-        osc.connect(preGain);
+        lfoOsc.type = lfoConfig.wave;
+        lfoOsc.frequency.value = lfoConfig.rate;
+        lfoGain.gain.value = lfoConfig.depth;
+
+        lfoGain.gain.value = lfoConfig.depth * 20;
+
+        osc.connect(oscMasterGain);
         subOsc.connect(subGain);
+        subGain.connect(oscMasterGain);
         subGain.connect(preGain);
         upOsc.connect(upGain);
-        upGain.connect(preGain);
+        upGain.connect(oscMasterGain);
+        
+        oscMasterGain.connect(preGain);
+        nodes.current.guitarIn.connect(preGain); 
+        
         preGain.connect(distNode);
         distNode.connect(bitNode);
         bitNode.connect(filter);
         filter.connect(slicerGain);
         slicerGain.connect(panner);
         panner.connect(masterIn);
-        // lfoOsc.connect(lfoGain);
-        // lfoGain.connect(filter.frequency);
+        
+        // osc.connect(preGain);
+        // upGain.connect(preGain);
+        // preGain.connect(distNode);
+
+        lfoOsc.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
         osc.start();
         subOsc.start();
         upOsc.start();
-        // lfoOsc.start();
+        lfoOsc.start();
+
         return {
           osc,
           subOsc,
@@ -698,15 +721,41 @@ const SlicerApp = () => {
           slicerGain,
           distNode,
           bitNode,
-          // lfoOsc,
-          // lfoGain,
+          oscMasterGain,
+          lfoOsc,
+          lfoGain,
         };
       };
       nodes.current.ch1 = createChain(-0.8);
       nodes.current.ch2 = createChain(0.8);
     }
   };
-
+  const handleSourceChange = async (source) => {
+            setAudioSource(source);
+            
+            if (source === "guitar") {
+              try {
+                if (!audioCtx.current) initAudio(); 
+                if (audioCtx.current.state === "suspended") await audioCtx.current.resume();
+                if (!mediaStreamRef.current) {
+                  const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                      echoCancellation: false,   
+                      noiseSuppression: false,   
+                      autoGainControl: false,   
+                    }
+                  });
+                  mediaStreamRef.current = stream;
+                  liveSourceNodeRef.current = audioCtx.current.createMediaStreamSource(stream);
+                  liveSourceNodeRef.current.connect(nodes.current.guitarIn);
+                }
+              } catch (err) {
+                console.error("Error audio card not available :", err);
+                alert(" Please make sure your browser has permission to use the microphone and that a valid audio input device is connected.");
+                setAudioSource("synth"); 
+              }
+            }
+          };
   useEffect(() => {
     if (isPlaying) {
       initAudio();
@@ -750,9 +799,8 @@ const SlicerApp = () => {
             for (let i = 0; i <= 1; i += 0.1) {
               const t = time + i * attackDuration;
               slicerGain.gain.setValueAtTime(targetVolume, releaseTime);
-              slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); // Smooth 50ms fade out to avoid clicking
+              slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); 
               slicerGain.gain.setValueAtTime(shape(i) * targetVolume, t);
-              // Add this right after the attack `for` loop
             }
           };
           if (nextStep < ch1Steps.length) {
@@ -1004,7 +1052,7 @@ const SlicerApp = () => {
           }}>
             <span style={{ fontSize: "16px" }}>⚒︎</span>
             <select
-              onChange={(e) => loadPresetFromUrl(e.target.value)}
+              onChange={(e) => loadPresetFromUrl(e.target.value, applyTSLData)}
               style={{
                 background: "#111",
                 color: "#0FF",
@@ -1090,6 +1138,33 @@ const SlicerApp = () => {
         >
           {isPlaying ? "STOP" : "PLAY"}
         </button>
+        <label
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            fontSize: "12px",
+            color: "#0FF",
+            fontWeight: "bold",
+          }}
+        >
+          INPUT SOURCE:
+          <select
+            value={audioSource}
+            onChange={(e) => handleSourceChange(e.target.value)}
+            style={{
+              width: "120px",
+              background: "#222",
+              color: "#0FF",
+              border: "1px solid #0FF",
+              padding: "4px",
+              marginTop: "4px",
+              cursor: "pointer",
+            }}
+          >
+            <option value="synth">Oscillators</option>
+            <option value="guitar">Input (Guitar)</option>
+          </select>
+        </label>
         <label
           style={{
             display: "flex",
@@ -1199,7 +1274,7 @@ const SlicerApp = () => {
         >
           <p
             style={{
-              fontSize: "12px",
+              fontSize: "10px",
               color: "#888",
               marginTop: 0,
               marginBottom: "20px",
@@ -1303,6 +1378,38 @@ const SlicerApp = () => {
               />
             </div>
           </div>
+          {/* --- LFO CONTROLS --- */}
+        <div style={{ borderLeft: "1px solid #444", height: "30px", marginLeft: "10px", marginRight: "10px" }}></div>
+        
+        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
+          LFO Wave:
+          <select 
+            value={lfoConfig.wave} 
+            onChange={(e) => setLfoConfig(p => ({ ...p, wave: e.target.value }))}
+            style={{ background: "#222", color: "#ffff00", border: "1px solid #ffff00", marginTop: "2px", fontSize: "10px" }}
+          >
+            <option value="sine">Sine</option>
+            <option value="triangle">Triangle</option>
+            <option value="sawtooth">Sawtooth</option>
+            <option value="square">Square</option>
+          </select>
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
+          LFO Rate: {lfoConfig.rate} Hz
+          <input
+            type='range' min='0.1' max='20' step='0.1' value={lfoConfig.rate} style={{width: "70px"}}
+            onChange={(e) => setLfoConfig(p => ({ ...p, rate: Number(e.target.value) }))}
+          />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
+          LFO Depth: {lfoConfig.depth}%
+          <input
+            type='range' min='0' max='100' value={lfoConfig.depth} style={{width: "70px"}}
+            onChange={(e) => setLfoConfig(p => ({ ...p, depth: Number(e.target.value) }))}
+          />
+        </label>
         </div>
       </details>
       {/* --- DROPDOWN: GLOBAL PARAMETERS --- */}
@@ -1327,7 +1434,7 @@ const SlicerApp = () => {
         <div style={{ padding: "15px" }}>
           <p
             style={{
-              fontSize: "12px",
+              fontSize: "10px",
               color: "#aaa",
               marginTop: 0,
               marginBottom: "20px",
@@ -1335,7 +1442,7 @@ const SlicerApp = () => {
             }}
           >
             ⚠︎ These effects process the sound continuously. They are completely
-            independent of the Slicer's rhythmic chopping.
+            independent of the Slicer's rhythmic chopping, but these parameters will be saved in the .TSL patch and they will be visible on the pedal
           </p>
           <div
             style={{
@@ -1522,7 +1629,7 @@ const SlicerApp = () => {
 
               <p
                 style={{
-                  fontSize: "12px",
+                  fontSize: "10px",
                   color: "#888",
                   marginTop: 0,
                   marginBottom: "20px",
@@ -1531,7 +1638,7 @@ const SlicerApp = () => {
               >
                 ⚠︎ <strong>Effect Type</strong> determines which effect will be
                 activated and sequenced by the Slicer. Pitch remains independent
-                and stackable.
+                and stackable. 
               </p>
 
               {/* DROPDOWN: ADVANCED CHANNEL FX */}

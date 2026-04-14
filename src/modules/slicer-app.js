@@ -15,6 +15,7 @@ const SlicerApp = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [editStepCh1, setEditStepCh1] = useState(0);
   const [editStepCh2, setEditStepCh2] = useState(0);
+  const [kbdOctave, setKbdOctave] = useState(0);
   const [synthConfig, setSynthConfig] = useState({
     pitch: 0,
     gain: 100,
@@ -1257,7 +1258,7 @@ const SlicerApp = () => {
             color: "#f0f",
           }}
         >
-          ☢︎ Synth and distorsion controls
+          ☢︎ Zealous Sound Shaping
         </summary>
         {/* --- CONTRÔLES DU SYNTHÉTISEUR AVEC BYPASS --- */}
         <div
@@ -1281,7 +1282,7 @@ const SlicerApp = () => {
               fontStyle: "italic",
             }}
           >
-            ⚠︎ <strong>Sound effects</strong> These effects are out of sitting of the BOSS SL2, they are applied on the audio output of the synthesizer before being sent to the master channel. You can use them to shape your sound but they won't be saved in the .TSL patch and they won't be visible on the pedal.
+            ⚠︎ <strong>Sound effects and controls</strong> These artifacts are out of sitting of the BOSS SL2, they are applied on the audio output of the synthesizer before being sent to the master channel. You can use them to shape your sound but they won't be saved in the .TSL patch and they won't be visible on the pedal.
           </p>
           <label
             style={{
@@ -1411,7 +1412,116 @@ const SlicerApp = () => {
           />
         </label>
         </div>
+            {/* --- LIVE PITCH KEYBOARD (ROLAND J-6 STYLE) --- */}
+      <details
+        style={{
+          margin: "30px",
+          background: "#1a1a1a",
+          borderRadius: "8px",
+          border: "1px solid #333",
+        }}
+      >
+        <summary
+          style={{
+            padding: "15px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            color: "#0FF",
+          }}
+        >
+          ☞ Live Pitch Keyboard
+        </summary>
+      <div style={{
+        background: "#1a1a1a",
+        padding: "15px",
+        borderRadius: "8px",
+        border: "1px solid #333",
+        marginBottom: "20px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center", maxWidth: "400px" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <span style={{ fontSize: "11px", color: "#888", fontWeight: "bold" }}>OCTAVE: {kbdOctave}</span>
+            <button 
+              onClick={() => setKbdOctave(p => Math.max(-2, p - 1))} 
+              style={{ background: "#333", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 10px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              -
+            </button>
+            <button 
+              onClick={() => setKbdOctave(p => Math.min(2, p + 1))} 
+              style={{ background: "#333", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 10px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center", marginTop: "15px" }}>
+          {/* Black Keys */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            {[
+              { note: "C#", idx: 1 }, { note: "D#", idx: 3 },
+              { spacer: true }, // Espace vide entre D# et F#
+              { note: "F#", idx: 6 }, { note: "G#", idx: 8 }, { note: "A#", idx: 10 }
+            ].map((k, i) => {
+              if (k.spacer) return <div key={i} style={{ width: "45px" }} />;
+              const targetPitch = kbdOctave * 12 + k.idx;
+              const isActive = synthConfig.pitch === targetPitch;
+              return (
+                <button
+                  key={k.note}
+                  onClick={() => setSynthConfig(p => ({ ...p, pitch: targetPitch }))}
+                  style={{
+                    width: "45px", height: "40px", borderRadius: "6px", border: "none",
+                    background: isActive ? "#F0F" : "rgb(125, 0, 125)",
+                    color: isActive ? "#FFF" : "#666",
+                    fontWeight: "bold", cursor: "pointer",
+                    boxShadow: isActive ? "0 0 12px #F0F" : "inset 0 2px 5px rgba(0,0,0,0.5)",
+                    transition: "all 0.1s"
+                  }}
+                >
+                  {k.note}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* White Keys */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            {[
+              { note: "C", idx: 0 }, { note: "D", idx: 2 }, { note: "E", idx: 4 },
+              { note: "F", idx: 5 }, { note: "G", idx: 7 }, { note: "A", idx: 9 }, { note: "B", idx: 11 },
+              { note: "C", idx: 12 } // Le Do de l'octave supérieure
+            ].map((k) => {
+              const targetPitch = kbdOctave * 12 + k.idx;
+              const isActive = synthConfig.pitch === targetPitch;
+              return (
+                <button
+                  key={k.idx}
+                  onClick={() => setSynthConfig(p => ({ ...p, pitch: targetPitch }))}
+                  style={{
+                    width: "45px", height: "45px", borderRadius: "6px", border: "none",
+                    background: isActive ? "#0FF" : "rgb(0, 125, 125)",
+                    color: isActive ? "#000" : "#333",
+                    fontWeight: "bold", cursor: "pointer",
+                    boxShadow: isActive ? "0 0 12px #0FF" : "inset 0 -2px 5px rgba(0,0,0,0.2)",
+                    transition: "all 0.1s"
+                  }}
+                >
+                  {k.note}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
       </details>
+      </details>
+  
+
       {/* --- DROPDOWN: GLOBAL PARAMETERS --- */}
       <details
         style={{

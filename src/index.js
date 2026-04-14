@@ -6,6 +6,7 @@ import SlicerApp from "./modules/slicer-app.js";
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
+    <title>SL2 Pattern Creator</title>
     <SlicerApp />
   </React.StrictMode>,
 );

@@ -1,4 +1,4 @@
-# 🎸 SL-2 TSL Editor
+# 🎸 SL-2 Pattern Creator
 
 Editor of patterns of the mysterious BOSS SL2 pedal that I like so mush. Some projets cover this topic, but I provide some tools to test the basic configuration before importation of TSL file (wait for it... an oscillator).
 
@@ -8,7 +8,7 @@ A free, open-source web editor for the **Boss SL-2 Slicer** pedal. Create, previ
 
 ## Live Demo
 
-**[Try the SL-2 Editor here](https://Labrikman.github.io/sl2-pattern-creator)**
+**[Try the SL-2 Pattern Creator here](https://Labrikman.github.io/sl2-pattern-creator)**
 
 ## Features
 

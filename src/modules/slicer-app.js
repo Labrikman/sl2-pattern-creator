@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { COMMUNITY_PRESETS } from "../presets/presets-manager";
 import { generateEmptyTrack, MAX_STEPS, stepNumber } from "../utils/constants";
+import useMidiKeyboard from "../hooks/useMidiKeyboard";
 import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName, loadPresetFromUrl } from "../utils/functions"; 
+import { exportTSL, applyTSLData } from "../utils/tlsManager";
 
-// ==========================================
-// 2. MAIN COMPONENT (Application)
-// ==========================================
 const SlicerApp = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
@@ -28,7 +27,7 @@ const SlicerApp = () => {
     subEnabled: false,
     upEnabled: false,
   });
-  const [audioSource, setAudioSource] = useState("synth"); // "synth" ou "guitar"
+  const [audioSource, setAudioSource] = useState("synth"); 
   const mediaStreamRef = useRef(null);
   const liveSourceNodeRef = useRef(null);
   const [lfoConfig, setLfoConfig] = useState({
@@ -36,6 +35,9 @@ const SlicerApp = () => {
     rate: 0.5,
     depth: 0,
   });
+  const audioCtx = useRef(null);
+  const timerRef = useRef(null);
+  const nodes = useRef({ ch1: {}, ch2: {}, master: {} });
   // const [fx, setFx] = useState({
   //   chorusMix: 0,
   //   phaserMix: 0,
@@ -48,6 +50,7 @@ const SlicerApp = () => {
   // });
   const [ch1Steps, setCh1Steps] = useState(generateEmptyTrack());
   const [ch2Steps, setCh2Steps] = useState(generateEmptyTrack());
+  
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
   const [bossParams, setBossParams] = useState({
@@ -73,6 +76,7 @@ const SlicerApp = () => {
     overtone2: [0, 50, 50, 50, 100, 35, 50, 50, 1],
   });
 
+  // --- FUNCTION TO UPDATE BOSS PARAMS ---
   const updateBossParam = (effectName, index, value) => {
     setBossParams((prev) => {
       const newArray = [...prev[effectName]];
@@ -146,159 +150,12 @@ const SlicerApp = () => {
     }
   };
 
-  const audioCtx = useRef(null);
-  const timerRef = useRef(null);
-  const nodes = useRef({ ch1: {}, ch2: {}, master: {} });
-
-  // ==========================================
-  // --- DYNAMIC IMPORT / EXPORT FUNCTIONS ---
-  // ==========================================
-  const exportTSL = () => {
-    const toHex = (val) =>
-      Math.max(0, Math.min(255, Math.round(val)))
-        .toString(16)
-        .toUpperCase()
-        .padStart(2, "0");
-
-    const formatPatchName = (name) => {
-      const hexArray = Array(16).fill("20");
-      for (let i = 0; i < Math.min(name.length, 16); i++) {
-        hexArray[i] = name
-          .charCodeAt(i)
-          .toString(16)
-          .toUpperCase()
-          .padStart(2, "0");
-      }
-      return hexArray;
-    };
-
-    const formatSlicerData = (steps, header) => {
-      const data = Array(100).fill("00");
-      data[0] = toHex(header[0]);
-      data[1] = toHex(header[1]);
-      data[2] = toHex(header[2]);
-      data[3] = toHex(header[3]);
-
-      steps.forEach((step, i) => {
-        if (i < 24) {
-          data[4 + i] = toHex(step.length !== undefined ? step.length : 50);
-          data[28 + i] = toHex(step.level);
-          data[52 + i] = toHex(step.filter);
-          data[76 + i] = toHex(step.pitch + 12);
-        }
-      });
-      return data;
-    };
-
-    const tslContent = {
-      name: liveSetName,
-      formatRev: "0001",
-      device: "SL-2",
-      data: [
-        [
-          {
-            memo: {
-              memo: "Exported via Labrik Editor",
-              isToneCentralPatch: true,
-            },
-            paramSet: {
-              "PATCH%COM": formatPatchName(bossParams.patchName),
-              "PATCH%SLICER(1)": formatSlicerData(
-                ch1Steps,
-                bossParams.slicer1Header,
-              ),
-              "PATCH%SLICER(2)": formatSlicerData(
-                ch2Steps,
-                bossParams.slicer2Header,
-              ),
-              "PATCH%COMP": bossParams.comp.map(toHex),
-              "PATCH%DIVIDER": bossParams.divider.map(toHex),
-              "PATCH%PHASER(1)": bossParams.phaser1.map(toHex),
-              "PATCH%PHASER(2)": bossParams.phaser2.map(toHex),
-              "PATCH%FLANGER(1)": bossParams.flanger1.map(toHex),
-              "PATCH%FLANGER(2)": bossParams.flanger2.map(toHex),
-              "PATCH%TREMOLO(1)": bossParams.tremolo1.map(toHex),
-              "PATCH%TREMOLO(2)": bossParams.tremolo2.map(toHex),
-              "PATCH%OVERTONE(1)": bossParams.overtone1.map(toHex),
-              "PATCH%OVERTONE(2)": bossParams.overtone2.map(toHex),
-              "PATCH%MIXER": bossParams.mixer.map(toHex),
-              "PATCH%NS": bossParams.ns.map(toHex),
-              "PATCH%PEQ": bossParams.peq.map(toHex),
-              "PATCH%BEAT": bossParams.beat.map(toHex),
-            },
-          },
-        ],
-      ],
-    };
-
-    const blob = new Blob([JSON.stringify(tslContent, null, 2)], {
-      type: "application/json",
-    });
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${bossParams.patchName.replace(/\s+/g, "_").toLowerCase()}.tsl`;
-    link.click();
-  };
-
-  // --- FONCTION PARTAGÉE POUR APPLIQUER LES DONNÉES TSL ---
-  const applyTSLData = (jsonString) => {
-    try {
-      const json = JSON.parse(jsonString);
-      if (json.name) setLiveSetName(json.name);
-
-      const patch = json.data[0][0].paramSet;
-      const fromHex = (h) => parseInt(h, 16);
-      const parseArray = (hexArray) => (hexArray ? hexArray.map(fromHex) : []);
-
-      const importedName = patch["PATCH%COM"]
-        .map((h) => String.fromCharCode(fromHex(h)))
-        .join("")
-        .trim();
-
-      const parseSlicer = (data) =>
-        Array.from({ length: 24 }, (_, i) => ({
-          length: fromHex(data[4 + i]),
-          level: fromHex(data[28 + i]),
-          filter: fromHex(data[52 + i]),
-          pitch: fromHex(data[76 + i]) - 12,
-        }));
-
-      setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
-      setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));
-
-      const sl1Data = patch["PATCH%SLICER(1)"];
-      const sl2Data = patch["PATCH%SLICER(2)"];
-      
-      setBossParams({
-        patchName: importedName || "IMPORTED PATCH",
-        slicer1Header: [fromHex(sl1Data[0]), fromHex(sl1Data[1]), fromHex(sl1Data[2]), fromHex(sl1Data[3])],
-        slicer2Header: [fromHex(sl2Data[0]), fromHex(sl2Data[1]), fromHex(sl2Data[2]), fromHex(sl2Data[3])],
-        comp: parseArray(patch["PATCH%COMP"]),
-        divider: parseArray(patch["PATCH%DIVIDER"]),
-        mixer: parseArray(patch["PATCH%MIXER"]),
-        ns: parseArray(patch["PATCH%NS"]),
-        peq: parseArray(patch["PATCH%PEQ"]),
-        beat: parseArray(patch["PATCH%BEAT"]),
-        phaser1: parseArray(patch["PATCH%PHASER(1)"]),
-        phaser2: parseArray(patch["PATCH%PHASER(2)"]),
-        flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
-        flanger2: parseArray(patch["PATCH%FLANGER(2)"]),
-        tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
-        tremolo2: parseArray(patch["PATCH%TREMOLO(2)"]),
-        overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
-        overtone2: parseArray(patch["PATCH%OVERTONE(2)"]),
-      });
-    } catch (err) {
-      alert("Error parsing .tsl data.");
-    }
-  };
-
+  // --- TSL IMPORT FUNCTIONS ---
   const importTSL = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => applyTSLData(event.target.result); 
+    reader.onload = (event) => applyTSLData(event.target.result, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams); 
     reader.readAsText(file);
     e.target.value = "";
   };
@@ -508,11 +365,18 @@ const SlicerApp = () => {
     return () => cancelAnimationFrame(animationId); // On nettoie quand on fait STOP
   }, [isPlaying, bossParams.ns]);
 
+  // --- REF FOR BOSS PARAMS TO USE INSIDE AUDIO LOOP ---
   const bossParamsRef = useRef(bossParams);
+
+  // --- MIDI KEYBOARD HOOK ---
+  useMidiKeyboard(kbdOctave, setSynthConfig);
+
+  // --- UPDATE BOSS PARAMS REF ON CHANGE ---
   useEffect(() => {
     bossParamsRef.current = bossParams;
   }, [bossParams]);
 
+  // --- AUDIO CONTEXT ---
   const initAudio = () => {
     if (!audioCtx.current) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -731,32 +595,36 @@ const SlicerApp = () => {
       nodes.current.ch2 = createChain(0.8);
     }
   };
+
+  // --- AUDIO SOURCE ---
   const handleSourceChange = async (source) => {
-            setAudioSource(source);
-            
-            if (source === "guitar") {
-              try {
-                if (!audioCtx.current) initAudio(); 
-                if (audioCtx.current.state === "suspended") await audioCtx.current.resume();
-                if (!mediaStreamRef.current) {
-                  const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                      echoCancellation: false,   
-                      noiseSuppression: false,   
-                      autoGainControl: false,   
-                    }
-                  });
-                  mediaStreamRef.current = stream;
-                  liveSourceNodeRef.current = audioCtx.current.createMediaStreamSource(stream);
-                  liveSourceNodeRef.current.connect(nodes.current.guitarIn);
-                }
-              } catch (err) {
-                console.error("Error audio card not available :", err);
-                alert(" Please make sure your browser has permission to use the microphone and that a valid audio input device is connected.");
-                setAudioSource("synth"); 
-              }
+    setAudioSource(source);
+    
+    if (source === "guitar") {
+      try {
+        if (!audioCtx.current) initAudio(); 
+        if (audioCtx.current.state === "suspended") await audioCtx.current.resume();
+        if (!mediaStreamRef.current) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,   
+              noiseSuppression: false,   
+              autoGainControl: false,   
             }
-          };
+          });
+          mediaStreamRef.current = stream;
+          liveSourceNodeRef.current = audioCtx.current.createMediaStreamSource(stream);
+          liveSourceNodeRef.current.connect(nodes.current.guitarIn);
+        }
+      } catch (err) {
+        console.error("Error audio card not available :", err);
+        alert(" Please make sure your browser has permission to use the microphone and that a valid audio input device is connected.");
+        setAudioSource("synth"); 
+      }
+    }
+  };
+  
+  // --- MAIN SEQUENCING LOOP ---
   useEffect(() => {
     if (isPlaying) {
       initAudio();
@@ -838,6 +706,7 @@ const SlicerApp = () => {
     bossParams.divider[1],
   ]);
 
+  // --- STEP UPDATE FUNCTION ---
   const updateStep = (channel, index, field, value) => {
     const val = Number(value);
     if (channel === 1) {
@@ -851,6 +720,7 @@ const SlicerApp = () => {
     }
   };
 
+  // --- STEP TOGGLE FUNCTION ---
   const toggleStep = (channel, index) => {
     if (channel === 1) {
       const newSteps = [...ch1Steps];
@@ -863,6 +733,7 @@ const SlicerApp = () => {
     }
   };
 
+  // --- GENERIC EFFECT RENDERER ---
   const renderGenericEffect = (title, stateKey, customLabels = []) => {
     const values = bossParams[stateKey];
     if (!values) return null;
@@ -1028,7 +899,7 @@ const SlicerApp = () => {
             ↓ IMPORT .TSL
           </button>
           <button
-            onClick={exportTSL}
+            onClick={() => exportTSL(bossParams, liveSetName, ch1Steps, ch2Steps)}
             style={{
               padding: "8px 15px",
               background: "#0FF",
@@ -1053,7 +924,7 @@ const SlicerApp = () => {
           }}>
             <span style={{ fontSize: "16px" }}>⚒︎</span>
             <select
-              onChange={(e) => loadPresetFromUrl(e.target.value, applyTSLData)}
+              onChange={(e) => loadPresetFromUrl(e.target.value, (jsonString) => applyTSLData(jsonString, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams))}
               style={{
                 background: "#111",
                 color: "#0FF",

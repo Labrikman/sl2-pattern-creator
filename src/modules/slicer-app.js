@@ -750,7 +750,7 @@ const SlicerApp = () => {
           border: "1px solid #444",
         }}
       >
-        <h4 style={{ margin: "0 0 10px 0", color: "#ccc" }}>{title}</h4>
+        <h4 style={{ margin: "0 0 10px 0", color: "#0FF" }}>{title}</h4>
         <div
           style={{
             display: "grid",
@@ -1472,7 +1472,7 @@ const SlicerApp = () => {
           <p
             style={{
               fontSize: "10px",
-              color: "#aaa",
+              color: "#0FF",
               marginTop: 0,
               marginBottom: "20px",
               fontStyle: "italic",
@@ -1486,6 +1486,7 @@ const SlicerApp = () => {
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
               gap: "15px",
+              color: "#0FF",
             }}
           >
             {renderGenericEffect("Mixer", "mixer", [
@@ -1507,7 +1508,6 @@ const SlicerApp = () => {
           </div>
         </div>
       </details>
-
       {/* --- CHANNELS (1 & 2) --- */}
       <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
         {[1, 2].map((channel) => {
@@ -1518,10 +1518,8 @@ const SlicerApp = () => {
           const headerKey = channel === 1 ? "slicer1Header" : "slicer2Header";
           const effectPrefix = channel === 1 ? "1" : "2";
           const stepCount = stepNumber[bossParams[headerKey][3]];
-
           const currentEffectType = bossParams[headerKey][2];
           const dynamicEffectName = getEffectParamName(currentEffectType);
-
           return (
             <div
               key={channel}

@@ -7,7 +7,7 @@ export const useAudioEngine = (isPlaying, masterVolume, bossParams, synthConfig,
   const mediaStreamRef = useRef(null);
   const liveSourceNodeRef = useRef(null);
 
-  const initAudio = () => {
+  const initAudio = (fx, generateReverbBuffer) => {
     if (!audioCtx.current) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       audioCtx.current = new Ctx();
@@ -43,62 +43,62 @@ export const useAudioEngine = (isPlaying, masterVolume, bossParams, synthConfig,
       // MIXER (dry/wet simple)
       const dryGain = ctx.createGain();
       const wetGain = ctx.createGain();
-      // const chorusDelay = ctx.createDelay();
-      // chorusDelay.delayTime.value = 0.03;
-      // const chorusLFO = ctx.createOscillator();
-      // const chorusLFOGain = ctx.createGain();
-      // chorusLFO.frequency.value = 1.5;
-      // chorusLFOGain.gain.value = 0.005;
-      // chorusLFO.connect(chorusLFOGain);
-      // chorusLFOGain.connect(chorusDelay.delayTime);
-      // chorusLFO.start();
-      // const chorusGain = ctx.createGain();
-      // chorusGain.gain.value = 0;
-      // const phaserLFO = ctx.createOscillator();
-      // phaserLFO.frequency.value = 0.5;
-      // const phaserDepth = ctx.createGain();
-      // phaserDepth.gain.value = 800;
-      // const phaserGain = ctx.createGain();
-      // phaserGain.gain.value = 0;
+      const chorusDelay = ctx.createDelay();
+      const chorusLFO = ctx.createOscillator();
+      const chorusLFOGain = ctx.createGain();
+      const chorusGain = ctx.createGain();
+      const phaserLFO = ctx.createOscillator();
+      const phaserDepth = ctx.createGain();
+      const phaserGain = ctx.createGain();
+      chorusDelay.delayTime.value = 0.03;
+      chorusLFO.frequency.value = 1.5;
+      chorusLFOGain.gain.value = 0.005;
+      chorusLFO.connect(chorusLFOGain);
+      chorusLFOGain.connect(chorusDelay.delayTime);
+      chorusLFO.start();
+      chorusGain.gain.value = 0;
+      phaserLFO.frequency.value = 0.5;
+      phaserDepth.gain.value = 800;
+      phaserGain.gain.value = 0;
       let lastPhaserNode = masterIn;
       for (let i = 0; i < 4; i++) {
         const pFilter = ctx.createBiquadFilter();
         pFilter.type = "allpass";
         pFilter.frequency.value = 1000;
-        // phaserLFO.connect(phaserDepth);
-        // phaserDepth.connect(pFilter.frequency);
+        phaserLFO.connect(phaserDepth);
+        phaserDepth.connect(pFilter.frequency);
         lastPhaserNode.connect(pFilter);
         lastPhaserNode = pFilter;
       }
-      // phaserLFO.start();
-      // lastPhaserNode.connect(phaserGain);
-      // SUPPLEMENTARIES EFFECTS
-      // const delayNode = ctx.createDelay(3.0);
-      // const delayFeedback = ctx.createGain();
-      // const delayFilter = ctx.createBiquadFilter();
-      // const delayGain = ctx.createGain();
-      // delayNode.delayTime.value = fx.delayTime;
-      // delayFeedback.gain.value = fx.delayFeedback / 100;
-      // delayFilter.type = "lowpass";
-      // delayFilter.frequency.value = 20000;
-      // delayGain.gain.value = fx.delayMix / 100;
-      // delayNode.connect(delayFilter);
-      // delayFilter.connect(delayFeedback);
-      // delayFeedback.connect(delayNode);
-      // delayNode.connect(delayGain);
-      // const reverbNode = ctx.createConvolver();
-      // reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
-      // const reverbGain = ctx.createGain();
-      // reverbGain.gain.value = fx.reverbMix / 100;
-      // reverbNode.connect(reverbGain);
-      // masterIn.connect(chorusDelay);
-      // chorusDelay.connect(chorusGain);
-      // chorusGain.connect(masterOut);
-      // phaserGain.connect(masterOut);
-      // masterIn.connect(delayNode);
-      // delayGain.connect(masterOut);
-      // masterIn.connect(reverbNode);
-      // reverbGain.connect(masterOut);
+      phaserLFO.start();
+      lastPhaserNode.connect(phaserGain);
+    //   SUPPLEMENTARIES EFFECTS
+      const delayNode = ctx.createDelay(3.0);
+      const delayFeedback = ctx.createGain();
+      const delayFilter = ctx.createBiquadFilter();
+      const delayGain = ctx.createGain();
+      delayNode.delayTime.value = fx.delayTime;
+      delayFeedback.gain.value = fx.delayFeedback / 100;
+      delayFilter.type = "lowpass";
+      delayFilter.frequency.value = 20000;
+      delayGain.gain.value = fx.delayMix / 100;
+      delayNode.connect(delayFilter);
+      delayFilter.connect(delayFeedback);
+      delayFeedback.connect(delayNode);
+      delayNode.connect(delayGain);
+      const reverbNode = ctx.createConvolver();
+      reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
+      const reverbGain = ctx.createGain();
+      reverbGain.gain.value = fx.reverbMix / 100;
+      reverbNode.connect(reverbGain);
+      masterIn.connect(chorusDelay);
+      chorusDelay.connect(chorusGain);
+      chorusGain.connect(masterOut);
+      phaserGain.connect(masterOut);
+      masterIn.connect(delayNode);
+      delayGain.connect(masterOut);
+      masterIn.connect(reverbNode);
+      reverbGain.connect(masterOut);
       masterIn.connect(masterOut);
       // INPUT BOSS PARAMS
       masterIn.connect(compressor);

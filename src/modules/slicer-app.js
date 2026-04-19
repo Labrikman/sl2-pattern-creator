@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { COMMUNITY_PRESETS } from "../presets/presets-manager";
 import { generateEmptyTrack, MAX_STEPS, stepNumber } from "../utils/constants";
 import useMidiKeyboard from "../hooks/useMidiKeyboard";
-import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName, loadPresetFromUrl } from "../utils/functions"; 
+import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName, loadPresetFromUrl, generateReverbBuffer } from "../utils/functions"; 
 import { exportTSL, applyTSLData } from "../utils/tlsManager";
 
 const SlicerApp = () => {
@@ -38,16 +38,16 @@ const SlicerApp = () => {
   const audioCtx = useRef(null);
   const timerRef = useRef(null);
   const nodes = useRef({ ch1: {}, ch2: {}, master: {} });
-  // const [fx, setFx] = useState({
-  //   chorusMix: 0,
-  //   phaserMix: 0,
-  //   delayMix: 0,
-  //   delayTime: 0.3,
-  //   delayFeedback: 40,
-  //   delayType: "digital",
-  //   reverbMix: 0,
-  //   reverbType: "hall",
-  // });
+  const [fx, setFx] = useState({
+    chorusMix: 0,
+    phaserMix: 0,
+    delayMix: 0,
+    delayTime: 0.3,
+    delayFeedback: 40,
+    delayType: "digital",
+    reverbMix: 0,
+    reverbType: "hall",
+  });
   const [ch1Steps, setCh1Steps] = useState(generateEmptyTrack());
   const [ch2Steps, setCh2Steps] = useState(generateEmptyTrack());
   
@@ -171,31 +171,35 @@ const SlicerApp = () => {
         0.05,
       );
     const m = nodes.current.master;
-    // if (m.delayGain)
-    //   m.delayGain.gain.setTargetAtTime(fx.delayMix / 100, time, 0.05);
-    // if (m.delayNode)
-    //   m.delayNode.delayTime.setTargetAtTime(fx.delayTime, time, 0.05);
-    // if (m.delayFeedback)
-    //   m.delayFeedback.gain.setTargetAtTime(fx.delayFeedback / 100, time, 0.05);
-    // if (m.delayFilter)
-    //   m.delayFilter.frequency.setTargetAtTime(
-    //     fx.delayType === "analog" ? 1500 : 20000,
-    //     time,
-    //     0.05,
-    //   );
-    // if (m.reverbGain)
-    //   m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
-    // if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
-    //   m.reverbNode.buffer = generateReverbBuffer(
-    //     audioCtx.current,
-    //     fx.reverbType,
-    //   );
-    //   m.currentReverbType = fx.reverbType;
-    // }
-    // if (m.chorusGain)
-    //   m.chorusGain.gain.setTargetAtTime(fx.chorusMix / 100, time, 0.05);
-    // if (m.phaserGain)
-    //   m.phaserGain.gain.setTargetAtTime(fx.phaserMix / 100, time, 0.05);
+    if (m.delayGain)
+      m.delayGain.gain.setTargetAtTime(fx.delayMix / 100, time, 0.05);
+    if (m.delayNode)
+      m.delayNode.delayTime.setTargetAtTime(fx.delayTime, time, 0.05);
+    if (m.delayFeedback)
+      m.delayFeedback.gain.setTargetAtTime(fx.delayFeedback / 100, time, 0.05);
+    if (m.delayFilter)
+      m.delayFilter.frequency.setTargetAtTime(
+        fx.delayType === "analog" ? 1500 : 20000,
+        time,
+        0.05,
+      );
+    if (m.reverbGain)
+      m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
+    if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
+      m.reverbNode.buffer = generateReverbBuffer(
+        audioCtx.current,
+        fx.reverbType,
+      );
+      m.currentReverbType = fx.reverbType;
+    }
+    if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
+      m.reverbNode.buffer = generateReverbBuffer(audioCtx.current, fx.reverbType);
+      m.currentReverbType = fx.reverbType;
+    }
+    if (m.chorusGain)
+      m.chorusGain.gain.setTargetAtTime(fx.chorusMix / 100, time, 0.05);
+    if (m.phaserGain)
+      m.phaserGain.gain.setTargetAtTime(fx.phaserMix / 100, time, 0.05);
     // BOSS PARAMS
     const mixer = bossParams.mixer;
     if (m.dryGain && m.wetGain) {
@@ -209,12 +213,12 @@ const SlicerApp = () => {
       m.compressor.attack.setTargetAtTime(comp[3] / 1000, time, 0.05);
       m.compressor.release.setTargetAtTime(comp[4] / 1000, time, 0.05);
     }
-    // const ns = bossParams.ns;
-    // if (m.noiseGate) {
-    //   const threshold = ns[1] / 100;
-    //   const gateValue = masterVolume / 100 > threshold ? 1 : 0;
-    //   m.noiseGate.gain.setTargetAtTime(gateValue, time, 0.05);
-    // }
+    const ns = bossParams.ns;
+    if (m.noiseGate) {
+      const threshold = ns[1] / 100;
+      const gateValue = masterVolume / 100 > threshold ? 1 : 0;
+      m.noiseGate.gain.setTargetAtTime(gateValue, time, 0.05);
+    }
     const peq = bossParams.peq;
     if (m.eqLow && peq[0]) {
       m.eqLow.frequency.setTargetAtTime(mapFreq(peq[2]), time, 0.05);
@@ -287,9 +291,9 @@ const SlicerApp = () => {
       channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
       channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
 
-      // channel.lfoOsc.type = lfoConfig.wave;
-      // channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
-      // channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
+      channel.lfoOsc.type = lfoConfig.wave;
+      channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
+      channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
     });
   }, [
     masterVolume,
@@ -299,8 +303,8 @@ const SlicerApp = () => {
     bossParams.peq,
     synthConfig,
     audioSource,
-    lfoConfig
-    // fx,
+    lfoConfig,
+    fx,
   ]);
 
   // --- ENVELOPE FOLLOWER (NOISE SUPPRESSOR) ---
@@ -413,62 +417,62 @@ const SlicerApp = () => {
       // MIXER (dry/wet simple)
       const dryGain = ctx.createGain();
       const wetGain = ctx.createGain();
-      // const chorusDelay = ctx.createDelay();
-      // chorusDelay.delayTime.value = 0.03;
-      // const chorusLFO = ctx.createOscillator();
-      // const chorusLFOGain = ctx.createGain();
-      // chorusLFO.frequency.value = 1.5;
-      // chorusLFOGain.gain.value = 0.005;
-      // chorusLFO.connect(chorusLFOGain);
-      // chorusLFOGain.connect(chorusDelay.delayTime);
-      // chorusLFO.start();
-      // const chorusGain = ctx.createGain();
-      // chorusGain.gain.value = 0;
-      // const phaserLFO = ctx.createOscillator();
-      // phaserLFO.frequency.value = 0.5;
-      // const phaserDepth = ctx.createGain();
-      // phaserDepth.gain.value = 800;
-      // const phaserGain = ctx.createGain();
-      // phaserGain.gain.value = 0;
+      const chorusDelay = ctx.createDelay();
+      const chorusLFO = ctx.createOscillator();
+      const chorusLFOGain = ctx.createGain();
+      const chorusGain = ctx.createGain();
+      const phaserLFO = ctx.createOscillator();
+      const phaserDepth = ctx.createGain();
+      const phaserGain = ctx.createGain();
       let lastPhaserNode = masterIn;
+      chorusDelay.delayTime.value = 0.03;
+      chorusLFO.frequency.value = 1.5;
+      chorusLFOGain.gain.value = 0.005;
+      chorusLFO.connect(chorusLFOGain);
+      chorusLFOGain.connect(chorusDelay.delayTime);
+      chorusLFO.start();
+      chorusGain.gain.value = 0;
+      phaserLFO.frequency.value = 0.5;
+      phaserDepth.gain.value = 800;
+      phaserGain.gain.value = 0;
       for (let i = 0; i < 4; i++) {
         const pFilter = ctx.createBiquadFilter();
         pFilter.type = "allpass";
         pFilter.frequency.value = 1000;
-        // phaserLFO.connect(phaserDepth);
-        // phaserDepth.connect(pFilter.frequency);
+        phaserLFO.connect(phaserDepth);
+        phaserDepth.connect(pFilter.frequency);
         lastPhaserNode.connect(pFilter);
         lastPhaserNode = pFilter;
       }
-      // phaserLFO.start();
-      // lastPhaserNode.connect(phaserGain);
       // SUPPLEMENTARIES EFFECTS
-      // const delayNode = ctx.createDelay(3.0);
-      // const delayFeedback = ctx.createGain();
-      // const delayFilter = ctx.createBiquadFilter();
-      // const delayGain = ctx.createGain();
-      // delayNode.delayTime.value = fx.delayTime;
-      // delayFeedback.gain.value = fx.delayFeedback / 100;
-      // delayFilter.type = "lowpass";
-      // delayFilter.frequency.value = 20000;
-      // delayGain.gain.value = fx.delayMix / 100;
-      // delayNode.connect(delayFilter);
-      // delayFilter.connect(delayFeedback);
-      // delayFeedback.connect(delayNode);
-      // delayNode.connect(delayGain);
-      // const reverbNode = ctx.createConvolver();
-      // reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
-      // const reverbGain = ctx.createGain();
-      // reverbGain.gain.value = fx.reverbMix / 100;
-      // reverbNode.connect(reverbGain);
-      // masterIn.connect(chorusDelay);
-      // chorusDelay.connect(chorusGain);
-      // chorusGain.connect(masterOut);
-      // phaserGain.connect(masterOut);
-      // masterIn.connect(delayNode);
-      // delayGain.connect(masterOut);
-      // masterIn.connect(reverbNode);
-      // reverbGain.connect(masterOut);
+      phaserLFO.start();
+      lastPhaserNode.connect(phaserGain);
+      const delayNode = ctx.createDelay(3.0);
+      const delayFeedback = ctx.createGain();
+      const delayFilter = ctx.createBiquadFilter();
+      const delayGain = ctx.createGain();
+      delayNode.delayTime.value = fx.delayTime;
+      delayFeedback.gain.value = fx.delayFeedback / 100;
+      delayFilter.type = "lowpass";
+      delayFilter.frequency.value = 20000;
+      delayGain.gain.value = fx.delayMix / 100;
+      delayNode.connect(delayFilter);
+      delayFilter.connect(delayFeedback);
+      delayFeedback.connect(delayNode);
+      delayNode.connect(delayGain);
+      const reverbNode = ctx.createConvolver();
+      reverbNode.buffer = generateReverbBuffer(ctx, fx.reverbType);
+      const reverbGain = ctx.createGain();
+      reverbGain.gain.value = fx.reverbMix / 100;
+      reverbNode.connect(reverbGain);
+      masterIn.connect(chorusDelay);
+      chorusDelay.connect(chorusGain);
+      chorusGain.connect(masterOut);
+      phaserGain.connect(masterOut);
+      masterIn.connect(delayNode);
+      delayGain.connect(masterOut);
+      masterIn.connect(reverbNode);
+      reverbGain.connect(masterOut);
       masterIn.connect(masterOut);
       // INPUT BOSS PARAMS
       masterIn.connect(compressor);
@@ -499,15 +503,15 @@ const SlicerApp = () => {
         dryGain,
         wetGain,
         gateAnalyser,
-        // currentReverbType: fx.reverbType,
-        // delayNode,
-        // delayFeedback,
-        // delayFilter,
-        // delayGain,
-        // reverbNode,
-        // reverbGain,
-        // chorusGain,
-        // phaserGain,
+        currentReverbType: fx.reverbType,
+        delayNode,
+        delayFeedback,
+        delayFilter,
+        delayGain,
+        reverbNode,
+        reverbGain,
+        chorusGain,
+        phaserGain,
       };
       
       const createChain = (panValue) => {
@@ -566,7 +570,6 @@ const SlicerApp = () => {
         
         // osc.connect(preGain);
         // upGain.connect(preGain);
-        // preGain.connect(distNode);
 
         lfoOsc.connect(lfoGain);
         lfoGain.connect(filter.frequency);
@@ -1283,7 +1286,60 @@ const SlicerApp = () => {
           />
         </label>
         </div>
-            {/* --- LIVE PITCH KEYBOARD (ROLAND J-6 STYLE) --- */}
+        {/* --- MASTER FX CONTROLS --- */}
+      <div style={{  margin: "20px"}}>
+        <h3 style={{ margin: "0 0 15px 0", color: "#0FF", fontSize: "14px" }}>☈ GLOBAL MASTER FX</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "15px" }}>
+          
+          {/* DELAY */}
+          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#0FF", fontSize: "12px" }}>DELAY</h4>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF" }}>
+              Mix: {fx.delayMix}%
+              <input type='range' min='0' max='100' value={fx.delayMix} onChange={(e) => setFx(p => ({ ...p, delayMix: Number(e.target.value) }))} />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF", marginTop: "5px" }}>
+              Time: {fx.delayTime}s
+              <input type='range' min='0.05' max='2' step='0.05' value={fx.delayTime} onChange={(e) => setFx(p => ({ ...p, delayTime: Number(e.target.value) }))} />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF", marginTop: "5px" }}>
+              Feedback: {fx.delayFeedback}%
+              <input type='range' min='0' max='90' value={fx.delayFeedback} onChange={(e) => setFx(p => ({ ...p, delayFeedback: Number(e.target.value) }))} />
+            </label>
+          </div>
+
+          {/* REVERB */}
+          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#f0f", fontSize: "12px" }}>REVERB</h4>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#F0F" }}>
+              Mix: {fx.reverbMix}%
+              <input type='range' min='0' max='100' value={fx.reverbMix} onChange={(e) => setFx(p => ({ ...p, reverbMix: Number(e.target.value) }))} />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#F0F", marginTop: "5px" }}>
+              Type:
+              <select value={fx.reverbType} onChange={(e) => setFx(p => ({ ...p, reverbType: e.target.value }))} style={{ background: "#111", color: "#F0F", border: "1px solid #444", padding: "3px", marginTop: "5px", fontSize: "10px" }}>
+                <option value="hall">Hall</option>
+                <option value="room">Room</option>
+                <option value="spring">Spring (Lo-Fi)</option>
+              </select>
+            </label>
+          </div>
+
+          {/* MODULATION */}
+          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#FF0", fontSize: "12px" }}>MODULATION</h4>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#FF0" }}>
+              Chorus Mix: {fx.chorusMix}%
+              <input type='range' min='0' max='100' value={fx.chorusMix} onChange={(e) => setFx(p => ({ ...p, chorusMix: Number(e.target.value) }))} />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#FF0", marginTop: "10px" }}>
+              Phaser Mix: {fx.phaserMix}%
+              <input type='range' min='0' max='100' value={fx.phaserMix} onChange={(e) => setFx(p => ({ ...p, phaserMix: Number(e.target.value) }))} />
+            </label>
+          </div>
+        </div>
+      </div>
+        {/* --- LIVE PITCH KEYBOARD (ROLAND J-6 STYLE) --- */}
       <details
         style={{
           margin: "30px",

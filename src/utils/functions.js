@@ -50,21 +50,22 @@ const mapGain = (val) => {
 const mapQ = (val) => {
   return 0.5 + (val / 100) * 9.5; // 0.5 → 10
 };
-// const generateReverbBuffer = (audioCtx, type) => {
-//   const sampleRate = audioCtx.sampleRate;
-//   const duration = type === "hall" ? 2.5 : type === "room" ? 0.7 : 1.2;
-//   const decay = type === "hall" ? 2.0 : type === "room" ? 5.0 : 3.0;
-//   const length = sampleRate * duration;
-//   const impulse = audioCtx.createBuffer(2, length, sampleRate);
-//   const left = impulse.getChannelData(0);
-//   const right = impulse.getChannelData(1);
-//   for (let i = 0; i < length; i++) {
-//     const multiplier = Math.pow(1 - i / length, decay);
-//     left[i] = (Math.random() * 2 - 1) * multiplier;
-//     right[i] = (Math.random() * 2 - 1) * multiplier;
-//   }
-//   return impulse;
-// };
+
+const generateReverbBuffer = (audioCtx, type) => {
+  const sampleRate = audioCtx.sampleRate;
+  const duration = type === "hall" ? 2.5 : type === "room" ? 0.7 : 1.2;
+  const decay = type === "hall" ? 2.0 : type === "room" ? 5.0 : 3.0;
+  const length = sampleRate * duration;
+  const impulse = audioCtx.createBuffer(2, length, sampleRate);
+  const left = impulse.getChannelData(0);
+  const right = impulse.getChannelData(1);
+  for (let i = 0; i < length; i++) {
+    const multiplier = Math.pow(1 - i / length, decay);
+    left[i] = (Math.random() * 2 - 1) * multiplier;
+    right[i] = (Math.random() * 2 - 1) * multiplier;
+  }
+  return impulse;
+};
 
 // --- UI UTILITY: Dynamic effect parameter name ---
 const getEffectParamName = (effectType) => {
@@ -109,4 +110,5 @@ export {
   mapQ,
   getEffectParamName,
   loadPresetFromUrl,
+  generateReverbBuffer
 };  

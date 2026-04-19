@@ -866,20 +866,6 @@ const SlicerApp = () => {
               }}
             />
           </label>
-          <button
-            onClick={randomizeAll}
-            style={{
-              padding: "8px 15px",
-              background: "#F0F",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-          >
-            ☢︎ RANDOMIZE
-          </button>
           <input
             type='file'
             id='fileImport'
@@ -891,7 +877,7 @@ const SlicerApp = () => {
             onClick={() => document.getElementById("fileImport").click()}
             style={{
               padding: "8px 15px",
-              background: "#444",
+              background: "#F0F",
               color: "white",
               border: "none",
               borderRadius: "4px",
@@ -914,6 +900,21 @@ const SlicerApp = () => {
             }}
           >
             ↑ EXPORT .TSL
+          </button>
+          <button
+            onClick={randomizeAll}
+            style={{
+              padding: "8px 15px",
+              background: "#000",
+              color: "#0F0",
+              border: "none",
+              boxShadow: "0 0 8px #0F0",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            ☢︎ RANDOMIZE
           </button>
           {/* --- COMMUNITY PRESETS DROPDOWN --- */}
           <div style={{
@@ -1002,7 +1003,7 @@ const SlicerApp = () => {
           onClick={() => setIsPlaying(!isPlaying)}
           style={{
             padding: "12px 25px",
-            background: isPlaying ? "#ff1744" : "#00e676",
+            background: isPlaying ? "#F0F" : "#0FF",
             color: "#000",
             border: "none",
             borderRadius: "4px",
@@ -1132,7 +1133,7 @@ const SlicerApp = () => {
             color: "#f0f",
           }}
         >
-          ☢︎ Zealous Sound Shaping
+          Zealous Sound Shaping
         </summary>
         {/* --- CONTRÔLES DU SYNTHÉTISEUR AVEC BYPASS --- */}
         <div
@@ -1466,7 +1467,7 @@ const SlicerApp = () => {
             color: "#0FF",
           }}
         >
-          ☣︎ Global Effects & Routing
+          Global Effects & Routing
         </summary>
         <div style={{ padding: "15px" }}>
           <p
@@ -1692,7 +1693,7 @@ const SlicerApp = () => {
                     color: "#aaa",
                   }}
                 >
-                  ▼ Advanced FX Parameters (Phaser, Flanger...)
+                  Advanced FX Parameters (Phaser, Flanger...)
                 </summary>
                 <div style={{ padding: "15px" }}>
                   <p

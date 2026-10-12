@@ -5,7 +5,6 @@ const MAX_STEPS = 24;
 const generateEmptyTrack = () =>
   Array.from({ length: MAX_STEPS }, () => ({
     level: 100,
-    pitch: 0,
     filter: 50,
     length: 50,
   }));

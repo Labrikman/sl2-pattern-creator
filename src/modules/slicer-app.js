@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, use } from "react";
 import { COMMUNITY_PRESETS } from "../presets/presets-manager";
 import { generateEmptyTrack, MAX_STEPS, stepNumber } from "../utils/constants";
 import useMidiKeyboard from "../hooks/useMidiKeyboard";
@@ -54,7 +54,7 @@ const SlicerApp = () => {
   });
   const [ch1Steps, setCh1Steps] = useState(generateEmptyTrack());
   const [ch2Steps, setCh2Steps] = useState(generateEmptyTrack());
-  
+  const stepRef = useRef({ ch1: ch1Steps, ch2: ch2Steps });
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
   const [bossParams, setBossParams] = useState({
@@ -164,6 +164,11 @@ const SlicerApp = () => {
     e.target.value = "";
   };
 
+  useEffect(() => { 
+    stepRef.current = { ch1: ch1Steps, ch2: ch2Steps };
+  }, [ch1Steps, ch2Steps]);
+
+
   // --- AUDIO ENGINE ---
   useEffect(() => {
     if (!audioCtx.current) return;
@@ -189,6 +194,7 @@ const SlicerApp = () => {
       );
     if (m.reverbGain)
       m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
+    
     if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
       m.reverbNode.buffer = generateReverbBuffer(
         audioCtx.current,
@@ -196,10 +202,7 @@ const SlicerApp = () => {
       );
       m.currentReverbType = fx.reverbType;
     }
-    if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
-      m.reverbNode.buffer = generateReverbBuffer(audioCtx.current, fx.reverbType);
-      m.currentReverbType = fx.reverbType;
-    }
+
     if (m.chorusGain)
       m.chorusGain.gain.setTargetAtTime(fx.chorusMix / 100, time, 0.05);
     if (m.phaserGain)
@@ -291,13 +294,6 @@ const SlicerApp = () => {
       channel.bitNode.curve = synthConfig.bitEnabled 
         ? makeBitCrusherCurve(synthConfig.bitDepth) 
         : makeBitCrusherCurve(16);
-
-      channel.distNode.curve = makeDistortionCurve(synthConfig.dist * 4);
-      channel.bitNode.curve = makeBitCrusherCurve(synthConfig.bitDepth);
-
-      channel.lfoOsc.type = lfoConfig.wave;
-      channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
-      channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth, time, 0.05);
     });
   }, [
     masterVolume,
@@ -484,7 +480,6 @@ const SlicerApp = () => {
       compressor.connect(noiseGate);
       // GATE → EQ
       noiseGate.connect(eqLow);
-      noiseGate.connect(eqLow);
       eqLow.connect(eqMid1);
       eqMid1.connect(eqMid2);
       eqMid2.connect(eqHigh);
@@ -645,7 +640,7 @@ const SlicerApp = () => {
           const stepCountCh2 = stepNumber[currentParams.slicer2Header[3]];
           const maxSteps = Math.max(stepCountCh1, stepCountCh2);
           const nextStep = (prev + 1) % maxSteps;
-          const triggerStep = (stepData, channelNodes) => {
+          const triggerStep = (stepData, channelNodes, effectType) => {
             const { osc, subOsc, upOsc, filter, slicerGain } = channelNodes;
             if (stepData.level === 0) return;
             const beat = currentParams.beat;
@@ -653,7 +648,12 @@ const SlicerApp = () => {
             const timeOffset = (Math.random() - 0.5) * groove;
             const now = audioCtx.current.currentTime;
             const time = Math.max(now, now + timeOffset);
-            const totalPitch = stepData.pitch + Number(synthConfig.pitch);
+            
+            let activePitch = 0;
+            if (effectType === 1) {
+              activePitch = Math.round((stepData.filter - 50 / (50 / 12)));
+            }
+            const totalPitch = activePitch + Number(synthConfig.pitch);
             const freq = 220 * Math.pow(2, totalPitch / 12);
             const filterBaseFreq = 100 + stepData.filter * 39;
             const isAccentStep = beat[0] && nextStep % 4 === 0;
@@ -671,19 +671,20 @@ const SlicerApp = () => {
             if (releaseTime > time + stepDuration)
               releaseTime = time + stepDuration - 0.01;
             const shape = (t) => Math.pow(t, 3); // tweakable
+            
             slicerGain.gain.setValueAtTime(0, time);
             for (let i = 0; i <= 1; i += 0.1) {
               const t = time + i * attackDuration;
-              slicerGain.gain.setValueAtTime(targetVolume, releaseTime);
-              slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); 
               slicerGain.gain.setValueAtTime(shape(i) * targetVolume, t);
             }
+            slicerGain.gain.setValueAtTime(targetVolume, releaseTime);
+            slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); 
           };
-          if (nextStep < ch1Steps.length) {
-            triggerStep(ch1Steps[nextStep], nodes.current.ch1);
+          if (nextStep < stepRef.current.ch1.length) {
+            triggerStep(stepRef.current.ch1[nextStep], nodes.current.ch1, currentParams.slicer1Header[2]);
           }
-          if (nextStep < ch1Steps.length) {
-            triggerStep(ch2Steps[nextStep], nodes.current.ch2);
+          if (nextStep < stepRef.current.ch2.length) {
+            triggerStep(stepRef.current.ch2[nextStep], nodes.current.ch2, currentParams.slicer2Header[2]);
           }
           return nextStep;
         });
@@ -708,8 +709,6 @@ const SlicerApp = () => {
     attack,
     duty,
     synthConfig.pitch,
-    ch1Steps,
-    ch2Steps,
     bossParams.divider[1],
   ]);
 
@@ -738,6 +737,18 @@ const SlicerApp = () => {
       newSteps[index].level = newSteps[index].level > 0 ? 0 : 100;
       setCh2Steps(newSteps);
     }
+  };
+
+  const formatStepsForExport = (steps, effectType) => {
+    return steps.map((step) => {
+      if (effectType === 1) {
+        const pitchToEffectLevel = Math.round((50 + step.filter) * (50 / 12));
+        const clampedFilter = Math.max(0, Math.min(100, pitchToEffectLevel));
+        return { ...step, filter: clampedFilter };
+      } else {
+        return step;
+      }
+    });
   };
 
   // --- GENERIC EFFECT RENDERER ---
@@ -892,7 +903,11 @@ const SlicerApp = () => {
             ↓ IMPORT .TSL
           </button>
           <button
-            onClick={() => exportTSL(bossParams, liveSetName, ch1Steps, ch2Steps)}
+            onClick={() => {
+             const exportedCh1 = formatStepsForExport(ch1Steps, bossParams.slicer1Header[2]);
+             const exportedCh2 = formatStepsForExport(ch2Steps, bossParams.slicer2Header[2]);
+              exportTSL(bossParams, liveSetName, exportedCh1, exportedCh2)}
+            }
             style={{
               padding: "8px 15px",
               background: "#0FF",
@@ -1882,32 +1897,6 @@ const SlicerApp = () => {
                           channel,
                           editStepIndex,
                           "level",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </label>
-                  <label
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: "12px",
-                      color: "#ccc",
-                    }}
-                  >
-                    <span style={{ marginBottom: "5px" }}>
-                      Pitch: {steps[editStepIndex].pitch}
-                    </span>
-                    <input
-                      type='range'
-                      min='-12'
-                      max='12'
-                      value={steps[editStepIndex].pitch}
-                      onChange={(e) =>
-                        updateStep(
-                          channel,
-                          editStepIndex,
-                          "pitch",
                           e.target.value,
                         )
                       }

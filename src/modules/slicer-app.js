@@ -27,6 +27,10 @@ const SlicerApp = () => {
     subEnabled: false,
     upEnabled: false,
   });
+  // Custome stter BPM minimun value
+  const handleBpmChange = (newValue) => {
+    setBpm(Math.max(2, newValue));
+  };
   const [audioSource, setAudioSource] = useState("synth"); 
   const mediaStreamRef = useRef(null);
   const liveSourceNodeRef = useRef(null);
@@ -1071,7 +1075,7 @@ const SlicerApp = () => {
           <input
             type='number'
             value={bpm}
-            onChange={(e) => setBpm(e.target.value)}
+            onChange={(e) => handleBpmChange(e.target.value)}
             style={{
               width: "60px",
               background: "#222",

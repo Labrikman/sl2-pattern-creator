@@ -1,8 +1,17 @@
-import React, { useState, useEffect, useRef, use } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { COMMUNITY_PRESETS } from "../presets/presets-manager";
 import { generateEmptyTrack, MAX_STEPS, stepNumber } from "../utils/constants";
 import useMidiKeyboard from "../hooks/useMidiKeyboard";
-import {  makeDistortionCurve, makeBitCrusherCurve, mapFreq, mapGain, mapQ, getEffectParamName, loadPresetFromUrl, generateReverbBuffer } from "../utils/functions"; 
+import {
+  makeDistortionCurve,
+  makeBitCrusherCurve,
+  mapFreq,
+  mapGain,
+  mapQ,
+  getEffectParamName,
+  loadPresetFromUrl,
+  generateReverbBuffer,
+} from "../utils/functions";
 import { exportTSL, applyTSLData } from "../utils/tlsManager";
 
 const SlicerApp = () => {
@@ -14,6 +23,7 @@ const SlicerApp = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [editStepCh1, setEditStepCh1] = useState(0);
   const [editStepCh2, setEditStepCh2] = useState(0);
+  const [isPitchQuantized, setIsPitchQuantized] = useState(true);
   const [kbdOctave, setKbdOctave] = useState(0);
   const [synthConfig, setSynthConfig] = useState({
     pitch: 0,
@@ -31,7 +41,7 @@ const SlicerApp = () => {
   const handleBpmChange = (newValue) => {
     setBpm(Math.max(2, newValue));
   };
-  const [audioSource, setAudioSource] = useState("synth"); 
+  const [audioSource, setAudioSource] = useState("synth");
   const mediaStreamRef = useRef(null);
   const liveSourceNodeRef = useRef(null);
   const [lfoConfig, setLfoConfig] = useState({
@@ -154,20 +164,37 @@ const SlicerApp = () => {
     }
   };
 
+  // ---- OCTAVE MAPPER ---
+  const getPitchDisplay = (semitones) => {
+    if (semitones === 0) return "0 Octave";
+    if (semitones === -12) return "-1 Octave";
+    if (semitones === -24) return "-2 Octave";
+    if (semitones === 12) return "1 Octave";
+    if (semitones === 24) return "+2 Octave";
+    return `${semitones > 0 ? "+" : ""}${semitones} st`;
+  };
+
   // --- TSL IMPORT FUNCTIONS ---
   const importTSL = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => applyTSLData(event.target.result, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams); 
+    reader.onload = (event) =>
+      applyTSLData(
+        event.target.result,
+        setLiveSetName,
+        setCh1Steps,
+        setCh2Steps,
+        setBossParams,
+      );
     reader.readAsText(file);
     e.target.value = "";
   };
 
-  useEffect(() => { 
+  // -- CONFIG CHANNEL 1/2 ---
+  useEffect(() => {
     stepRef.current = { ch1: ch1Steps, ch2: ch2Steps };
   }, [ch1Steps, ch2Steps]);
-
 
   // --- AUDIO ENGINE ---
   useEffect(() => {
@@ -194,7 +221,7 @@ const SlicerApp = () => {
       );
     if (m.reverbGain)
       m.reverbGain.gain.setTargetAtTime(fx.reverbMix / 100, time, 0.05);
-    
+
     if (m.reverbNode && m.currentReverbType !== fx.reverbType) {
       m.reverbNode.buffer = generateReverbBuffer(
         audioCtx.current,
@@ -249,50 +276,62 @@ const SlicerApp = () => {
       m.eqOutputGain.gain.setTargetAtTime(peq[11] / 100, time, 0.05);
     }
     if (nodes.current.guitarIn) {
-      nodes.current.guitarIn.gain.setTargetAtTime(audioSource === "guitar" ? 1 : 0, time, 0.05);
+      nodes.current.guitarIn.gain.setTargetAtTime(
+        audioSource === "guitar" ? 1 : 0,
+        time,
+        0.05,
+      );
     }
     ["ch1", "ch2"].forEach((ch) => {
       const channel = nodes.current[ch];
-      if (!channel || !channel.osc) return; 
+      if (!channel || !channel.osc) return;
       const time = audioCtx.current.currentTime;
       if (channel.oscMasterGain) {
-        channel.oscMasterGain.gain.setTargetAtTime(audioSource === "synth" ? 1 : 0, time, 0.05);
+        channel.oscMasterGain.gain.setTargetAtTime(
+          audioSource === "synth" ? 1 : 0,
+          time,
+          0.05,
+        );
       }
       // Gains and Octaves
       const subVol = synthConfig.subEnabled ? synthConfig.octSub / 100 : 0;
       const upVol = synthConfig.upEnabled ? synthConfig.octUp / 100 : 0;
-   
+
       channel.preGain.gain.setTargetAtTime(synthConfig.gain / 100, time, 0.05);
       channel.subGain.gain.setTargetAtTime(subVol, time, 0.01);
       channel.upGain.gain.setTargetAtTime(upVol, time, 0.01);
-      
+
       // Update Distortion (WaveShaper 1)
-      const distCurve = synthConfig.distEnabled 
-        ? makeDistortionCurve(synthConfig.dist * 10) 
-        : new Float32Array([-1, 1]); 
+      const distCurve = synthConfig.distEnabled
+        ? makeDistortionCurve(synthConfig.dist * 10)
+        : new Float32Array([-1, 1]);
       channel.distNode.curve = distCurve;
-      
+
       // Update Bit Depth (WaveShaper 2)
       const bitCurve = makeBitCrusherCurve(synthConfig.bitDepth);
       channel.bitNode.curve = bitCurve;
-      
-      channel.oscMasterGain.gain.setTargetAtTime(audioSource === "synth" ? 1 : 0, time, 0.05);
- 
+
+      channel.oscMasterGain.gain.setTargetAtTime(
+        audioSource === "synth" ? 1 : 0,
+        time,
+        0.05,
+      );
+
       // LFO
       if (channel.lfoOsc && channel.lfoGain) {
         channel.lfoOsc.type = lfoConfig.wave;
         channel.lfoOsc.frequency.setTargetAtTime(lfoConfig.rate, time, 0.05);
-        channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth * 20, time, 0.05); 
+        channel.lfoGain.gain.setTargetAtTime(lfoConfig.depth * 20, time, 0.05);
       }
 
-      // Distortion 
-      channel.distNode.curve = synthConfig.distEnabled 
-        ? makeDistortionCurve(synthConfig.dist * 4) 
+      // Distortion
+      channel.distNode.curve = synthConfig.distEnabled
+        ? makeDistortionCurve(synthConfig.dist * 4)
         : null;
 
       // 3. Bit Depth (si désactivé, on force à 16 bits pour un son pur)
-      channel.bitNode.curve = synthConfig.bitEnabled 
-        ? makeBitCrusherCurve(synthConfig.bitDepth) 
+      channel.bitNode.curve = synthConfig.bitEnabled
+        ? makeBitCrusherCurve(synthConfig.bitDepth)
         : makeBitCrusherCurve(16);
     });
   }, [
@@ -387,7 +426,7 @@ const SlicerApp = () => {
       audioCtx.current = new Ctx();
       const ctx = audioCtx.current;
       const guitarIn = ctx.createGain();
-      guitarIn.gain.value = 0; 
+      guitarIn.gain.value = 0;
       nodes.current.guitarIn = guitarIn;
       const masterIn = ctx.createGain();
       const masterOut = ctx.createGain();
@@ -512,7 +551,7 @@ const SlicerApp = () => {
         chorusGain,
         phaserGain,
       };
-      
+
       const createChain = (panValue) => {
         const oscMasterGain = ctx.createGain();
         const osc = ctx.createOscillator();
@@ -556,17 +595,17 @@ const SlicerApp = () => {
         subGain.connect(preGain);
         upOsc.connect(upGain);
         upGain.connect(oscMasterGain);
-        
+
         oscMasterGain.connect(preGain);
-        nodes.current.guitarIn.connect(preGain); 
-        
+        nodes.current.guitarIn.connect(preGain);
+
         preGain.connect(distNode);
         distNode.connect(bitNode);
         bitNode.connect(filter);
         filter.connect(slicerGain);
         slicerGain.connect(panner);
         panner.connect(masterIn);
-        
+
         // osc.connect(preGain);
         // upGain.connect(preGain);
 
@@ -601,31 +640,35 @@ const SlicerApp = () => {
   // --- AUDIO SOURCE ---
   const handleSourceChange = async (source) => {
     setAudioSource(source);
-    
+
     if (source === "guitar") {
       try {
-        if (!audioCtx.current) initAudio(); 
-        if (audioCtx.current.state === "suspended") await audioCtx.current.resume();
+        if (!audioCtx.current) initAudio();
+        if (audioCtx.current.state === "suspended")
+          await audioCtx.current.resume();
         if (!mediaStreamRef.current) {
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
-              echoCancellation: false,   
-              noiseSuppression: false,   
-              autoGainControl: false,   
-            }
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
           });
           mediaStreamRef.current = stream;
-          liveSourceNodeRef.current = audioCtx.current.createMediaStreamSource(stream);
+          liveSourceNodeRef.current =
+            audioCtx.current.createMediaStreamSource(stream);
           liveSourceNodeRef.current.connect(nodes.current.guitarIn);
         }
       } catch (err) {
         console.error("Error audio card not available :", err);
-        alert(" Please make sure your browser has permission to use the microphone and that a valid audio input device is connected.");
-        setAudioSource("synth"); 
+        alert(
+          " Please make sure your browser has permission to use the microphone and that a valid audio input device is connected.",
+        );
+        setAudioSource("synth");
       }
     }
   };
-  
+
   // --- MAIN SEQUENCING LOOP ---
   useEffect(() => {
     if (isPlaying) {
@@ -648,13 +691,14 @@ const SlicerApp = () => {
             const timeOffset = (Math.random() - 0.5) * groove;
             const now = audioCtx.current.currentTime;
             const time = Math.max(now, now + timeOffset);
-            
+
             let activePitch = 0;
             if (effectType === 1) {
-              activePitch = Math.round((stepData.filter - 50 / (50 / 12)));
+              activePitch = Math.round((stepData.filter - 50) * (24 / 50));
             }
             const totalPitch = activePitch + Number(synthConfig.pitch);
             const freq = 220 * Math.pow(2, totalPitch / 12);
+
             const filterBaseFreq = 100 + stepData.filter * 39;
             const isAccentStep = beat[0] && nextStep % 4 === 0;
             const accentBoost = isAccentStep ? 1.3 : 1;
@@ -671,20 +715,28 @@ const SlicerApp = () => {
             if (releaseTime > time + stepDuration)
               releaseTime = time + stepDuration - 0.01;
             const shape = (t) => Math.pow(t, 3); // tweakable
-            
+
             slicerGain.gain.setValueAtTime(0, time);
             for (let i = 0; i <= 1; i += 0.1) {
               const t = time + i * attackDuration;
               slicerGain.gain.setValueAtTime(shape(i) * targetVolume, t);
             }
             slicerGain.gain.setValueAtTime(targetVolume, releaseTime);
-            slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05); 
+            slicerGain.gain.linearRampToValueAtTime(0, releaseTime + 0.05);
           };
           if (nextStep < stepRef.current.ch1.length) {
-            triggerStep(stepRef.current.ch1[nextStep], nodes.current.ch1, currentParams.slicer1Header[2]);
+            triggerStep(
+              stepRef.current.ch1[nextStep],
+              nodes.current.ch1,
+              currentParams.slicer1Header[2],
+            );
           }
           if (nextStep < stepRef.current.ch2.length) {
-            triggerStep(stepRef.current.ch2[nextStep], nodes.current.ch2, currentParams.slicer2Header[2]);
+            triggerStep(
+              stepRef.current.ch2[nextStep],
+              nodes.current.ch2,
+              currentParams.slicer2Header[2],
+            );
           }
           return nextStep;
         });
@@ -703,14 +755,7 @@ const SlicerApp = () => {
       }
     }
     return () => clearInterval(timerRef.current);
-  }, [
-    isPlaying,
-    bpm,
-    attack,
-    duty,
-    synthConfig.pitch,
-    bossParams.divider[1],
-  ]);
+  }, [isPlaying, bpm, attack, duty, synthConfig.pitch, bossParams.divider[1]]);
 
   // --- STEP UPDATE FUNCTION ---
   const updateStep = (channel, index, field, value) => {
@@ -904,10 +949,16 @@ const SlicerApp = () => {
           </button>
           <button
             onClick={() => {
-             const exportedCh1 = formatStepsForExport(ch1Steps, bossParams.slicer1Header[2]);
-             const exportedCh2 = formatStepsForExport(ch2Steps, bossParams.slicer2Header[2]);
-              exportTSL(bossParams, liveSetName, exportedCh1, exportedCh2)}
-            }
+              const exportedCh1 = formatStepsForExport(
+                ch1Steps,
+                bossParams.slicer1Header[2],
+              );
+              const exportedCh2 = formatStepsForExport(
+                ch2Steps,
+                bossParams.slicer2Header[2],
+              );
+              exportTSL(bossParams, liveSetName, exportedCh1, exportedCh2);
+            }}
             style={{
               padding: "8px 15px",
               background: "#0FF",
@@ -936,18 +987,30 @@ const SlicerApp = () => {
             ☢︎ RANDOMIZE
           </button>
           {/* --- COMMUNITY PRESETS DROPDOWN --- */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            background: "#222",
-            padding: "5px 10px",
-            borderRadius: "4px",
-            border: "1px solid #444"
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              background: "#222",
+              padding: "5px 10px",
+              borderRadius: "4px",
+              border: "1px solid #444",
+            }}
+          >
             <span style={{ fontSize: "16px" }}>⚒︎</span>
             <select
-              onChange={(e) => loadPresetFromUrl(e.target.value, (jsonString) => applyTSLData(jsonString, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams))}
+              onChange={(e) =>
+                loadPresetFromUrl(e.target.value, (jsonString) =>
+                  applyTSLData(
+                    jsonString,
+                    setLiveSetName,
+                    setCh1Steps,
+                    setCh2Steps,
+                    setBossParams,
+                  ),
+                )
+              }
               style={{
                 background: "#111",
                 color: "#0FF",
@@ -955,7 +1018,7 @@ const SlicerApp = () => {
                 padding: "6px",
                 borderRadius: "4px",
                 fontSize: "12px",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               {COMMUNITY_PRESETS.map((preset, idx) => (
@@ -964,19 +1027,19 @@ const SlicerApp = () => {
                 </option>
               ))}
             </select>
-            
+
             {/* link to Pull Request */}
             <a
-              href="https://github.com/Labrikman/sl2-pattern-creator/tree/main/public/presets"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Share your own pattern by submitting a Pull Request!"
+              href='https://github.com/Labrikman/sl2-pattern-creator/tree/main/public/presets'
+              target='_blank'
+              rel='noopener noreferrer'
+              title='Share your own pattern by submitting a Pull Request!'
               style={{
                 fontSize: "11px",
                 color: "#F0F",
                 textDecoration: "none",
                 fontWeight: "bold",
-                marginLeft: "5px"
+                marginLeft: "5px",
               }}
             >
               + Submit PR
@@ -1056,8 +1119,8 @@ const SlicerApp = () => {
               cursor: "pointer",
             }}
           >
-            <option value="synth">Oscillators</option>
-            <option value="guitar">Input (Guitar)</option>
+            <option value='synth'>Oscillators</option>
+            <option value='guitar'>Input (Guitar)</option>
           </select>
         </label>
         <label
@@ -1176,24 +1239,31 @@ const SlicerApp = () => {
               fontStyle: "italic",
             }}
           >
-            ⚠︎ <strong>Sound effects and controls</strong> These artifacts are out of sitting of the BOSS SL2, they are applied on the audio output of the synthesizer before being sent to the master channel. You can use them to shape your sound but they won't be saved in the .TSL patch and they won't be visible on the pedal.
+            ⚠︎ <strong>Sound effects and controls</strong> These artifacts are
+            out of sitting of the BOSS SL2, they are applied on the audio output
+            of the synthesizer before being sent to the master channel. You can
+            use them to shape your sound but they won't be saved in the .TSL
+            patch and they won't be visible on the pedal.
           </p>
           <label
             style={{
               display: "flex",
               flexDirection: "column",
               fontSize: "12px",
-              color: "#f0f", 
+              color: "#f0f",
             }}
           >
             Pre-Gain: {synthConfig.gain}%
             <input
               type='range'
               min='0'
-              max='500' 
+              max='500'
               value={synthConfig.gain}
               onChange={(e) =>
-                setSynthConfig((prev) => ({ ...prev, gain: Number(e.target.value) }))
+                setSynthConfig((prev) => ({
+                  ...prev,
+                  gain: Number(e.target.value),
+                }))
               }
             />
           </label>
@@ -1202,7 +1272,7 @@ const SlicerApp = () => {
               display: "flex",
               flexDirection: "column",
               fontSize: "12px",
-              color: "#f0f", 
+              color: "#f0f",
             }}
           >
             Global Pitch: {synthConfig.pitch} st
@@ -1212,262 +1282,630 @@ const SlicerApp = () => {
               max='24'
               value={synthConfig.pitch}
               onChange={(e) =>
-                setSynthConfig((prev) => ({ ...prev, pitch: Number(e.target.value) }))
+                setSynthConfig((prev) => ({
+                  ...prev,
+                  pitch: Number(e.target.value),
+                }))
               }
             />
           </label>
-          <div style={{ borderLeft: "1px solid #444", height: "30px", marginLeft: "10px", marginRight: "10px" }}></div>
+          <div
+            style={{
+              borderLeft: "1px solid #444",
+              height: "30px",
+              marginLeft: "10px",
+              marginRight: "10px",
+            }}
+          ></div>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <button 
-              onClick={() => setSynthConfig(p => ({...p, distEnabled: !p.distEnabled}))}
-              style={{ fontSize: "9px", background: synthConfig.distEnabled ? "#f0f" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            <button
+              onClick={() =>
+                setSynthConfig((p) => ({ ...p, distEnabled: !p.distEnabled }))
+              }
+              style={{
+                fontSize: "9px",
+                background: synthConfig.distEnabled ? "#f0f" : "#444",
+                border: "none",
+                borderRadius: "2px",
+                cursor: "pointer",
+              }}
             >
               {synthConfig.distEnabled ? "DIST ON" : "DIST OFF"}
             </button>
             <label style={{ fontSize: "11px", color: "#f0f" }}>
               Disto: {synthConfig.dist}%
-              <input type='range' min='0' max='100' value={synthConfig.dist}
-                onChange={(e) => setSynthConfig(p => ({ ...p, dist: Number(e.target.value) }))}
+              <input
+                type='range'
+                min='0'
+                max='100'
+                value={synthConfig.dist}
+                onChange={(e) =>
+                  setSynthConfig((p) => ({
+                    ...p,
+                    dist: Number(e.target.value),
+                  }))
+                }
               />
             </label>
           </div>
           {/* --- CONTRÔLES DU SYNTHÉTISEUR --- */}
           {/* Bitcrush avec Bouton */}
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <button 
-              onClick={() => setSynthConfig(p => ({...p, bitEnabled: !p.bitEnabled}))}
-              style={{ fontSize: "9px", background: synthConfig.bitEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            <button
+              onClick={() =>
+                setSynthConfig((p) => ({ ...p, bitEnabled: !p.bitEnabled }))
+              }
+              style={{
+                fontSize: "9px",
+                background: synthConfig.bitEnabled ? "#00e5ff" : "#444",
+                border: "none",
+                borderRadius: "2px",
+                cursor: "pointer",
+              }}
             >
               {synthConfig.bitEnabled ? "BIT ON" : "BIT OFF"}
             </button>
             <label style={{ fontSize: "11px", color: "#00e5ff" }}>
               Bits: {synthConfig.bitDepth}
-              <input type='range' min='1' max='16' value={synthConfig.bitDepth}
-                onChange={(e) => setSynthConfig(p => ({ ...p, bitDepth: Number(e.target.value) }))}
+              <input
+                type='range'
+                min='1'
+                max='16'
+                value={synthConfig.bitDepth}
+                onChange={(e) =>
+                  setSynthConfig((p) => ({
+                    ...p,
+                    bitDepth: Number(e.target.value),
+                  }))
+                }
               />
             </label>
           </div>
 
           {/* Octaves avec Boutons */}
           <div style={{ display: "flex", gap: "10px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <button 
-                onClick={() => setSynthConfig(p => ({...p, subEnabled: !p.subEnabled}))}
-                style={{ fontSize: "9px", background: synthConfig.subEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <button
+                onClick={() =>
+                  setSynthConfig((p) => ({ ...p, subEnabled: !p.subEnabled }))
+                }
+                style={{
+                  fontSize: "9px",
+                  background: synthConfig.subEnabled ? "#00e5ff" : "#444",
+                  border: "none",
+                  borderRadius: "2px",
+                  cursor: "pointer",
+                }}
               >
                 SUB {synthConfig.subEnabled ? "ON" : "OFF"}
               </button>
-              <input type='range' min='0' max='100' value={synthConfig.octSub} style={{width: "60px"}}
-                onChange={(e) => setSynthConfig(p => ({ ...p, octSub: Number(e.target.value) }))}
+              <input
+                type='range'
+                min='0'
+                max='100'
+                value={synthConfig.octSub}
+                style={{ width: "60px" }}
+                onChange={(e) =>
+                  setSynthConfig((p) => ({
+                    ...p,
+                    octSub: Number(e.target.value),
+                  }))
+                }
               />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <button 
-                onClick={() => setSynthConfig(p => ({...p, upEnabled: !p.upEnabled}))}
-                style={{ fontSize: "9px", background: synthConfig.upEnabled ? "#00e5ff" : "#444", border: "none", borderRadius: "2px", cursor: "pointer" }}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <button
+                onClick={() =>
+                  setSynthConfig((p) => ({ ...p, upEnabled: !p.upEnabled }))
+                }
+                style={{
+                  fontSize: "9px",
+                  background: synthConfig.upEnabled ? "#00e5ff" : "#444",
+                  border: "none",
+                  borderRadius: "2px",
+                  cursor: "pointer",
+                }}
               >
                 UP {synthConfig.upEnabled ? "ON" : "OFF"}
               </button>
-              <input type='range' min='0' max='100' value={synthConfig.octUp} style={{width: "60px"}}
-                onChange={(e) => setSynthConfig(p => ({ ...p, octUp: Number(e.target.value) }))}
+              <input
+                type='range'
+                min='0'
+                max='100'
+                value={synthConfig.octUp}
+                style={{ width: "60px" }}
+                onChange={(e) =>
+                  setSynthConfig((p) => ({
+                    ...p,
+                    octUp: Number(e.target.value),
+                  }))
+                }
               />
             </div>
           </div>
           {/* --- LFO CONTROLS --- */}
-        <div style={{ borderLeft: "1px solid #444", height: "30px", marginLeft: "10px", marginRight: "10px" }}></div>
-        
-        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
-          LFO Wave:
-          <select 
-            value={lfoConfig.wave} 
-            onChange={(e) => setLfoConfig(p => ({ ...p, wave: e.target.value }))}
-            style={{ background: "#222", color: "#ffff00", border: "1px solid #ffff00", marginTop: "2px", fontSize: "10px" }}
+          <div
+            style={{
+              borderLeft: "1px solid #444",
+              height: "30px",
+              marginLeft: "10px",
+              marginRight: "10px",
+            }}
+          ></div>
+
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: "11px",
+              color: "#ffff00",
+            }}
           >
-            <option value="sine">Sine</option>
-            <option value="triangle">Triangle</option>
-            <option value="sawtooth">Sawtooth</option>
-            <option value="square">Square</option>
-          </select>
-        </label>
+            LFO Wave:
+            <select
+              value={lfoConfig.wave}
+              onChange={(e) =>
+                setLfoConfig((p) => ({ ...p, wave: e.target.value }))
+              }
+              style={{
+                background: "#222",
+                color: "#ffff00",
+                border: "1px solid #ffff00",
+                marginTop: "2px",
+                fontSize: "10px",
+              }}
+            >
+              <option value='sine'>Sine</option>
+              <option value='triangle'>Triangle</option>
+              <option value='sawtooth'>Sawtooth</option>
+              <option value='square'>Square</option>
+            </select>
+          </label>
 
-        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
-          LFO Rate: {lfoConfig.rate} Hz
-          <input
-            type='range' min='0.1' max='20' step='0.1' value={lfoConfig.rate} style={{width: "70px"}}
-            onChange={(e) => setLfoConfig(p => ({ ...p, rate: Number(e.target.value) }))}
-          />
-        </label>
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: "11px",
+              color: "#ffff00",
+            }}
+          >
+            LFO Rate: {lfoConfig.rate} Hz
+            <input
+              type='range'
+              min='0.1'
+              max='20'
+              step='0.1'
+              value={lfoConfig.rate}
+              style={{ width: "70px" }}
+              onChange={(e) =>
+                setLfoConfig((p) => ({ ...p, rate: Number(e.target.value) }))
+              }
+            />
+          </label>
 
-        <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#ffff00" }}>
-          LFO Depth: {lfoConfig.depth}%
-          <input
-            type='range' min='0' max='100' value={lfoConfig.depth} style={{width: "70px"}}
-            onChange={(e) => setLfoConfig(p => ({ ...p, depth: Number(e.target.value) }))}
-          />
-        </label>
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: "11px",
+              color: "#ffff00",
+            }}
+          >
+            LFO Depth: {lfoConfig.depth}%
+            <input
+              type='range'
+              min='0'
+              max='100'
+              value={lfoConfig.depth}
+              style={{ width: "70px" }}
+              onChange={(e) =>
+                setLfoConfig((p) => ({ ...p, depth: Number(e.target.value) }))
+              }
+            />
+          </label>
         </div>
         {/* --- MASTER FX CONTROLS --- */}
-      <div style={{  margin: "20px"}}>
-        <h3 style={{ margin: "0 0 15px 0", color: "#0FF", fontSize: "14px" }}>☈ GLOBAL MASTER FX</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "15px" }}>
-          
-          {/* DELAY */}
-          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#0FF", fontSize: "12px" }}>DELAY</h4>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF" }}>
-              Mix: {fx.delayMix}%
-              <input type='range' min='0' max='100' value={fx.delayMix} onChange={(e) => setFx(p => ({ ...p, delayMix: Number(e.target.value) }))} />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF", marginTop: "5px" }}>
-              Time: {fx.delayTime}s
-              <input type='range' min='0.05' max='2' step='0.05' value={fx.delayTime} onChange={(e) => setFx(p => ({ ...p, delayTime: Number(e.target.value) }))} />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#0FF", marginTop: "5px" }}>
-              Feedback: {fx.delayFeedback}%
-              <input type='range' min='0' max='90' value={fx.delayFeedback} onChange={(e) => setFx(p => ({ ...p, delayFeedback: Number(e.target.value) }))} />
-            </label>
-          </div>
+        <div style={{ margin: "20px" }}>
+          <h3 style={{ margin: "0 0 15px 0", color: "#0FF", fontSize: "14px" }}>
+            ☈ GLOBAL MASTER FX
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "15px",
+            }}
+          >
+            {/* DELAY */}
+            <div
+              style={{
+                background: "#222",
+                padding: "10px",
+                borderRadius: "6px",
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 10px 0",
+                  color: "#0FF",
+                  fontSize: "12px",
+                }}
+              >
+                DELAY
+              </h4>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#0FF",
+                }}
+              >
+                Mix: {fx.delayMix}%
+                <input
+                  type='range'
+                  min='0'
+                  max='100'
+                  value={fx.delayMix}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, delayMix: Number(e.target.value) }))
+                  }
+                />
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#0FF",
+                  marginTop: "5px",
+                }}
+              >
+                Time: {fx.delayTime}s
+                <input
+                  type='range'
+                  min='0.05'
+                  max='2'
+                  step='0.05'
+                  value={fx.delayTime}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, delayTime: Number(e.target.value) }))
+                  }
+                />
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#0FF",
+                  marginTop: "5px",
+                }}
+              >
+                Feedback: {fx.delayFeedback}%
+                <input
+                  type='range'
+                  min='0'
+                  max='90'
+                  value={fx.delayFeedback}
+                  onChange={(e) =>
+                    setFx((p) => ({
+                      ...p,
+                      delayFeedback: Number(e.target.value),
+                    }))
+                  }
+                />
+              </label>
+            </div>
 
-          {/* REVERB */}
-          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#f0f", fontSize: "12px" }}>REVERB</h4>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#F0F" }}>
-              Mix: {fx.reverbMix}%
-              <input type='range' min='0' max='100' value={fx.reverbMix} onChange={(e) => setFx(p => ({ ...p, reverbMix: Number(e.target.value) }))} />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#F0F", marginTop: "5px" }}>
-              Type:
-              <select value={fx.reverbType} onChange={(e) => setFx(p => ({ ...p, reverbType: e.target.value }))} style={{ background: "#111", color: "#F0F", border: "1px solid #444", padding: "3px", marginTop: "5px", fontSize: "10px" }}>
-                <option value="hall">Hall</option>
-                <option value="room">Room</option>
-                <option value="spring">Spring (Lo-Fi)</option>
-              </select>
-            </label>
-          </div>
+            {/* REVERB */}
+            <div
+              style={{
+                background: "#222",
+                padding: "10px",
+                borderRadius: "6px",
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 10px 0",
+                  color: "#f0f",
+                  fontSize: "12px",
+                }}
+              >
+                REVERB
+              </h4>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#F0F",
+                }}
+              >
+                Mix: {fx.reverbMix}%
+                <input
+                  type='range'
+                  min='0'
+                  max='100'
+                  value={fx.reverbMix}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, reverbMix: Number(e.target.value) }))
+                  }
+                />
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#F0F",
+                  marginTop: "5px",
+                }}
+              >
+                Type:
+                <select
+                  value={fx.reverbType}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, reverbType: e.target.value }))
+                  }
+                  style={{
+                    background: "#111",
+                    color: "#F0F",
+                    border: "1px solid #444",
+                    padding: "3px",
+                    marginTop: "5px",
+                    fontSize: "10px",
+                  }}
+                >
+                  <option value='hall'>Hall</option>
+                  <option value='room'>Room</option>
+                  <option value='spring'>Spring (Lo-Fi)</option>
+                </select>
+              </label>
+            </div>
 
-          {/* MODULATION */}
-          <div style={{ background: "#222", padding: "10px", borderRadius: "6px" }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#FF0", fontSize: "12px" }}>MODULATION</h4>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#FF0" }}>
-              Chorus Mix: {fx.chorusMix}%
-              <input type='range' min='0' max='100' value={fx.chorusMix} onChange={(e) => setFx(p => ({ ...p, chorusMix: Number(e.target.value) }))} />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", fontSize: "11px", color: "#FF0", marginTop: "10px" }}>
-              Phaser Mix: {fx.phaserMix}%
-              <input type='range' min='0' max='100' value={fx.phaserMix} onChange={(e) => setFx(p => ({ ...p, phaserMix: Number(e.target.value) }))} />
-            </label>
+            {/* MODULATION */}
+            <div
+              style={{
+                background: "#222",
+                padding: "10px",
+                borderRadius: "6px",
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 10px 0",
+                  color: "#FF0",
+                  fontSize: "12px",
+                }}
+              >
+                MODULATION
+              </h4>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#FF0",
+                }}
+              >
+                Chorus Mix: {fx.chorusMix}%
+                <input
+                  type='range'
+                  min='0'
+                  max='100'
+                  value={fx.chorusMix}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, chorusMix: Number(e.target.value) }))
+                  }
+                />
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  fontSize: "11px",
+                  color: "#FF0",
+                  marginTop: "10px",
+                }}
+              >
+                Phaser Mix: {fx.phaserMix}%
+                <input
+                  type='range'
+                  min='0'
+                  max='100'
+                  value={fx.phaserMix}
+                  onChange={(e) =>
+                    setFx((p) => ({ ...p, phaserMix: Number(e.target.value) }))
+                  }
+                />
+              </label>
+            </div>
           </div>
         </div>
-      </div>
         {/* --- LIVE PITCH KEYBOARD (ROLAND J-6 STYLE) --- */}
-      <details
-        style={{
-          margin: "30px",
-          background: "#1a1a1a",
-          borderRadius: "8px",
-          border: "1px solid #333",
-        }}
-      >
-        <summary
+        <details
           style={{
-            padding: "15px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            color: "#0FF",
+            margin: "30px",
+            background: "#1a1a1a",
+            borderRadius: "8px",
+            border: "1px solid #333",
           }}
         >
-          ☞ Live Pitch Keyboard
-        </summary>
-      <div style={{
-        background: "#1a1a1a",
-        padding: "15px",
-        borderRadius: "8px",
-        border: "1px solid #333",
-        marginBottom: "20px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center", maxWidth: "400px" }}>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <span style={{ fontSize: "11px", color: "#888", fontWeight: "bold" }}>OCTAVE: {kbdOctave}</span>
-            <button 
-              onClick={() => setKbdOctave(p => Math.max(-2, p - 1))} 
-              style={{ background: "#333", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 10px", cursor: "pointer", fontWeight: "bold" }}
+          <summary
+            style={{
+              padding: "15px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              color: "#0FF",
+            }}
+          >
+            ☞ Live Pitch Keyboard
+          </summary>
+          <div
+            style={{
+              background: "#1a1a1a",
+              padding: "15px",
+              borderRadius: "8px",
+              border: "1px solid #333",
+              marginBottom: "20px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                width: "100%",
+                alignItems: "center",
+                maxWidth: "400px",
+              }}
             >
-              -
-            </button>
-            <button 
-              onClick={() => setKbdOctave(p => Math.min(2, p + 1))} 
-              style={{ background: "#333", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 10px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center", marginTop: "15px" }}>
-          {/* Black Keys */}
-          <div style={{ display: "flex", gap: "8px" }}>
-            {[
-              { note: "C#", idx: 1 }, { note: "D#", idx: 3 },
-              { spacer: true }, // Espace vide entre D# et F#
-              { note: "F#", idx: 6 }, { note: "G#", idx: 8 }, { note: "A#", idx: 10 }
-            ].map((k, i) => {
-              if (k.spacer) return <div key={i} style={{ width: "45px" }} />;
-              const targetPitch = kbdOctave * 12 + k.idx;
-              const isActive = synthConfig.pitch === targetPitch;
-              return (
-                <button
-                  key={k.note}
-                  onClick={() => setSynthConfig(p => ({ ...p, pitch: targetPitch }))}
+              <div
+                style={{ display: "flex", gap: "10px", alignItems: "center" }}
+              >
+                <span
                   style={{
-                    width: "45px", height: "40px", borderRadius: "6px", border: "none",
-                    background: isActive ? "#F0F" : "rgb(125, 0, 125)",
-                    color: isActive ? "#FFF" : "#666",
-                    fontWeight: "bold", cursor: "pointer",
-                    boxShadow: isActive ? "0 0 12px #F0F" : "inset 0 2px 5px rgba(0,0,0,0.5)",
-                    transition: "all 0.1s"
+                    fontSize: "11px",
+                    color: "#888",
+                    fontWeight: "bold",
                   }}
                 >
-                  {k.note}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* White Keys */}
-          <div style={{ display: "flex", gap: "8px" }}>
-            {[
-              { note: "C", idx: 0 }, { note: "D", idx: 2 }, { note: "E", idx: 4 },
-              { note: "F", idx: 5 }, { note: "G", idx: 7 }, { note: "A", idx: 9 }, { note: "B", idx: 11 },
-              { note: "C", idx: 12 } // Le Do de l'octave supérieure
-            ].map((k) => {
-              const targetPitch = kbdOctave * 12 + k.idx;
-              const isActive = synthConfig.pitch === targetPitch;
-              return (
+                  OCTAVE: {kbdOctave}
+                </span>
                 <button
-                  key={k.idx}
-                  onClick={() => setSynthConfig(p => ({ ...p, pitch: targetPitch }))}
+                  onClick={() => setKbdOctave((p) => Math.max(-2, p - 1))}
                   style={{
-                    width: "45px", height: "45px", borderRadius: "6px", border: "none",
-                    background: isActive ? "#0FF" : "rgb(0, 125, 125)",
-                    color: isActive ? "#000" : "#333",
-                    fontWeight: "bold", cursor: "pointer",
-                    boxShadow: isActive ? "0 0 12px #0FF" : "inset 0 -2px 5px rgba(0,0,0,0.2)",
-                    transition: "all 0.1s"
+                    background: "#333",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "4px 10px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
                   }}
                 >
-                  {k.note}
+                  -
                 </button>
-              );
-            })}
+                <button
+                  onClick={() => setKbdOctave((p) => Math.min(2, p + 1))}
+                  style={{
+                    background: "#333",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "4px 10px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                alignItems: "center",
+                marginTop: "15px",
+              }}
+            >
+              {/* Black Keys */}
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[
+                  { note: "C#", idx: 1 },
+                  { note: "D#", idx: 3 },
+                  { spacer: true }, // Espace vide entre D# et F#
+                  { note: "F#", idx: 6 },
+                  { note: "G#", idx: 8 },
+                  { note: "A#", idx: 10 },
+                ].map((k, i) => {
+                  if (k.spacer)
+                    return <div key={i} style={{ width: "45px" }} />;
+                  const targetPitch = kbdOctave * 12 + k.idx;
+                  const isActive = synthConfig.pitch === targetPitch;
+                  return (
+                    <button
+                      key={k.note}
+                      onClick={() =>
+                        setSynthConfig((p) => ({ ...p, pitch: targetPitch }))
+                      }
+                      style={{
+                        width: "45px",
+                        height: "40px",
+                        borderRadius: "6px",
+                        border: "none",
+                        background: isActive ? "#F0F" : "rgb(125, 0, 125)",
+                        color: isActive ? "#FFF" : "#666",
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        boxShadow: isActive
+                          ? "0 0 12px #F0F"
+                          : "inset 0 2px 5px rgba(0,0,0,0.5)",
+                        transition: "all 0.1s",
+                      }}
+                    >
+                      {k.note}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* White Keys */}
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[
+                  { note: "C", idx: 0 },
+                  { note: "D", idx: 2 },
+                  { note: "E", idx: 4 },
+                  { note: "F", idx: 5 },
+                  { note: "G", idx: 7 },
+                  { note: "A", idx: 9 },
+                  { note: "B", idx: 11 },
+                  { note: "C", idx: 12 }, // Le Do de l'octave supérieure
+                ].map((k) => {
+                  const targetPitch = kbdOctave * 12 + k.idx;
+                  const isActive = synthConfig.pitch === targetPitch;
+                  return (
+                    <button
+                      key={k.idx}
+                      onClick={() =>
+                        setSynthConfig((p) => ({ ...p, pitch: targetPitch }))
+                      }
+                      style={{
+                        width: "45px",
+                        height: "45px",
+                        borderRadius: "6px",
+                        border: "none",
+                        background: isActive ? "#0FF" : "rgb(0, 125, 125)",
+                        color: isActive ? "#000" : "#333",
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        boxShadow: isActive
+                          ? "0 0 12px #0FF"
+                          : "inset 0 -2px 5px rgba(0,0,0,0.2)",
+                        transition: "all 0.1s",
+                      }}
+                    >
+                      {k.note}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </details>
       </details>
-      </details>
-  
 
       {/* --- DROPDOWN: GLOBAL PARAMETERS --- */}
       <details
@@ -1499,7 +1937,9 @@ const SlicerApp = () => {
             }}
           >
             ⚠︎ These effects process the sound continuously. They are completely
-            independent of the Slicer's rhythmic chopping, but these parameters will be saved in the .TSL patch and they will be visible on the pedal
+            independent of the Slicer's rhythmic chopping, but these parameters
+            will be saved in the .TSL patch and they will be visible on the
+            pedal
           </p>
           <div
             style={{
@@ -1693,7 +2133,7 @@ const SlicerApp = () => {
               >
                 ⚠︎ <strong>Effect Type</strong> determines which effect will be
                 activated and sequenced by the Slicer. Pitch remains independent
-                and stackable. 
+                and stackable.
               </p>
 
               {/* DROPDOWN: ADVANCED CHANNEL FX */}
@@ -1902,32 +2342,155 @@ const SlicerApp = () => {
                       }
                     />
                   </label>
-                  <label
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: "12px",
-                      color: "#ccc",
-                    }}
-                  >
-                    <span style={{ marginBottom: "5px" }}>
-                      {dynamicEffectName}: {steps[editStepIndex].filter}
-                    </span>
-                    <input
-                      type='range'
-                      min='0'
-                      max='100'
-                      value={steps[editStepIndex].filter}
-                      onChange={(e) =>
-                        updateStep(
-                          channel,
-                          editStepIndex,
-                          "filter",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </label>
+                  {currentEffectType === 1 ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        minWidth: "130px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#F0F",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {isPitchQuantized ? "Pitch (Notes)" : "Pitch (free)"}
+                        </span>
+                        <button
+                          onClick={() => setIsPitchQuantized(!isPitchQuantized)}
+                          style={{
+                            background: isPitchQuantized ? "#F0F" : "#444",
+                            color: isPitchQuantized ? "#000" : "#fff",
+                            border: "none",
+                            borderRadius: "4px",
+                            padding: "2px 6px",
+                            fontSize: "9px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          SWITCH
+                        </button>
+                      </div>
+
+                      {isPitchQuantized ? (
+                        // --- NOTES MODE (-24 à +24) ---
+                        <label
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            fontSize: "11px",
+                            color: "#ccc",
+                          }}
+                        >
+                          <input
+                            type='range'
+                            min='-24'
+                            max='24'
+                            step='1'
+                            value={Math.round(
+                              (steps[editStepIndex].filter - 50) * (24 / 50),
+                            )}
+                            onChange={(e) => {
+                              const semitones = Number(e.target.value);
+                              const filterVal = Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  Math.round(50 + semitones * (50 / 24)),
+                                ),
+                              );
+                              updateStep(
+                                channel,
+                                editStepIndex,
+                                "filter",
+                                filterVal,
+                              );
+                            }}
+                          />
+                          <span
+                            style={{ marginBottom: "5px", fontStyle: "italic" }}
+                          >
+                            {getPitchDisplay(
+                              Math.round(
+                                (steps[editStepIndex].filter - 50) * (24 / 50),
+                              ),
+                            )}
+                          </span>
+                        </label>
+                      ) : (
+                        // --- FREE MODE (0 à 100) ---
+                        <label
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            fontSize: "11px",
+                            color: "#ccc",
+                          }}
+                        >
+                          <input
+                            type='range'
+                            min='0'
+                            max='100'
+                            step='1'
+                            value={steps[editStepIndex].filter}
+                            onChange={(e) =>
+                              updateStep(
+                                channel,
+                                editStepIndex,
+                                "filter",
+                                e.target.value,
+                              )
+                            }
+                          />
+                          <span
+                            style={{ marginBottom: "5px", fontStyle: "italic" }}
+                          >
+                            Brute value: {steps[editStepIndex].filter}
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  ) : (
+                    // --- OTHER EFFECTS (Flanger, Phaser...) ---
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        fontSize: "12px",
+                        color: "#ccc",
+                      }}
+                    >
+                      <span style={{ marginBottom: "5px" }}>
+                        {dynamicEffectName}: {steps[editStepIndex].filter}
+                      </span>
+                      <input
+                        type='range'
+                        min='0'
+                        max='100'
+                        value={steps[editStepIndex].filter}
+                        onChange={(e) =>
+                          updateStep(
+                            channel,
+                            editStepIndex,
+                            "filter",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </label>
+                  )}
                   <label
                     style={{
                       display: "flex",

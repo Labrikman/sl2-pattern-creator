@@ -949,15 +949,7 @@ const SlicerApp = () => {
           </button>
           <button
             onClick={() => {
-              const exportedCh1 = formatStepsForExport(
-                ch1Steps,
-                bossParams.slicer1Header[2],
-              );
-              const exportedCh2 = formatStepsForExport(
-                ch2Steps,
-                bossParams.slicer2Header[2],
-              );
-              exportTSL(bossParams, liveSetName, exportedCh1, exportedCh2);
+              exportTSL(bossParams, liveSetName, ch1Steps, ch2Steps);
             }}
             style={{
               padding: "8px 15px",

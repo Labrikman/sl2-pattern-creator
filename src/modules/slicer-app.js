@@ -981,28 +981,96 @@ const SlicerApp = () => {
           >
             ↑ EXPORT .TSL {liveSetPatches.length > 0 ? `(${liveSetPatches.length})` : ""}
           </button>
-          <button
-            onClick={randomizeAll}
+          {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
+          <a
+            href='https://ko-fi.com/labrikman'
+            target='_blank'
+            rel='noopener noreferrer'
+            title='If you like my work and you want to improve this project support me ❤️‍🔥'
             style={{
-              padding: "8px 15px",
-              background: "#000",
-              color: "#0F0",
-              border: "none",
-              boxShadow: "0 0 8px #0F0",
+              padding: "8px",
+              background: "#ffffff",
+              color: "#F00",
+              textDecoration: "none",
               borderRadius: "4px",
-              cursor: "pointer",
               fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              fontSize: "13px",
             }}
           >
-            ☢︎ RANDOMIZE
-          </button>
+            Support Labrikman 🧱
+          </a>
           {/* --- PANNEAU DU LIVE SET MANAGER --- */}
           {liveSetPatches.length >= 0 && (
             <div style={{ width: "100%", background: "#222", padding: "15px", borderRadius: "8px", marginBottom: "10px", border: "1px solid #444" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "10px" }}>
                 <h3 style={{ margin: 0, color: "#0FF" }}>{liveSetName} </h3>
-                <button onClick={() => setEditingPatchIndex(null)} style={{ background: "#444", color: "#FFF", border: "none", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }}>
+                <button
+                  onClick={handleSavePatch}
+                  style={{
+                    padding: "8px 15px",
+                    background: editingPatchIndex !== null ? "#F0F" : "#0FF",
+                    color: "#000",
+                    border: "none",
+                    marginLeft: "10px",
+                    transitionProperty: "background-color, box-shadow",
+                    transitionDuration: "1s",
+                    boxShadow: `0 0 8px ${editingPatchIndex !== null ? "#F0F" : "#0FF"}`,
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {editingPatchIndex !== null ? "✎ UPDATE PATCH" : "+ ADD TO LIVE SET"}
+                </button>
+                <button 
+                  onClick={() => setEditingPatchIndex(null)} 
+                  style={{ 
+                    padding: "8px 15px",
+                    background: "#000",
+                    boxShadow: "0 0 8px #fff", 
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    marginLeft: "10px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
                   + NEW PATCH
+                </button>
+                <button
+                  onClick={clearLiveSet}
+                  style={{
+                    padding: "8px 15px",
+                    background: "#000",
+                    boxShadow: "0 0 8px #F00", 
+                    color: "#F00",
+                    marginLeft: "10px",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ☠︎ CLEAR SET
+                </button>
+                <button
+                  onClick={randomizeAll}
+                  style={{
+                    padding: "8px 15px",
+                    background: "#000",
+                    color: "#0F0",
+                    border: "none",
+                    marginLeft: "10px",
+                    boxShadow: "0 0 8px #0F0",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ☢︎ RANDOMIZE
                 </button>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "150px", overflowY: "auto", paddingRight: "5px" }}>
@@ -1084,26 +1152,6 @@ const SlicerApp = () => {
           </div>
             </div>
           )}
-          {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
-          <a
-            href='https://ko-fi.com/labrikman'
-            target='_blank'
-            rel='noopener noreferrer'
-            title='If you like my work and you want to improve this project support me ❤️‍🔥'
-            style={{
-              padding: "8px",
-              background: "#ffffff",
-              color: "#F00",
-              textDecoration: "none",
-              borderRadius: "4px",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              fontSize: "13px",
-            }}
-          >
-            Support Labrikman 🧱
-          </a>
         </div>
       </div>
 

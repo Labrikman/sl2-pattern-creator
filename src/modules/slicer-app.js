@@ -12,7 +12,8 @@ import {
   loadPresetFromUrl,
   generateReverbBuffer,
 } from "../utils/functions";
-import { exportTSL, applyTSLData } from "../utils/tlsManager";
+import { applyTSLData } from "../utils/tlsManager";
+import useLiveSetManager from "../utils/useLiveSetManager";
 
 const SlicerApp = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -67,6 +68,8 @@ const SlicerApp = () => {
   const stepRef = useRef({ ch1: ch1Steps, ch2: ch2Steps });
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
+  const { liveSetPatches, addToLiveSet, updatePatch, removePatch, clearLiveSet, exportLiveSet } = useLiveSetManager(liveSetName);
+  const [editingPatchIndex, setEditingPatchIndex] = useState(null); 
   const [bossParams, setBossParams] = useState({
     patchName: "MY SL2 PATCH",
     slicer1Header: [50, 1, 0, 0],
@@ -784,7 +787,7 @@ const SlicerApp = () => {
     }
   };
 
-  const formatStepsForExport = (steps, effectType) => {
+/*   const formatStepsForExport = (steps, effectType) => {
     return steps.map((step) => {
       if (effectType === 1) {
         const pitchToEffectLevel = Math.round((50 + step.filter) * (50 / 12));
@@ -794,7 +797,7 @@ const SlicerApp = () => {
         return step;
       }
     });
-  };
+  }; */
 
   // --- GENERIC EFFECT RENDERER ---
   const renderGenericEffect = (title, stateKey, customLabels = []) => {
@@ -848,6 +851,23 @@ const SlicerApp = () => {
         </div>
       </div>
     );
+  };
+
+  const handleSavePatch = () => {
+    if (editingPatchIndex !== null) {
+      updatePatch(editingPatchIndex, bossParams, ch1Steps, ch2Steps);
+    } else {
+      addToLiveSet(bossParams, ch1Steps, ch2Steps);
+    }
+  };
+
+
+  const handleLoadPatch = (index) => {
+    const patchToLoad = liveSetPatches[index];
+    setBossParams(patchToLoad.bossParams);
+    setCh1Steps(patchToLoad.ch1Steps);
+    setCh2Steps(patchToLoad.ch2Steps);
+    setEditingPatchIndex(index);
   };
 
   return (
@@ -948,9 +968,7 @@ const SlicerApp = () => {
             ↓ IMPORT .TSL
           </button>
           <button
-            onClick={() => {
-              exportTSL(bossParams, liveSetName, ch1Steps, ch2Steps);
-            }}
+            onClick={() => exportLiveSet(bossParams, ch1Steps, ch2Steps)}
             style={{
               padding: "8px 15px",
               background: "#0FF",
@@ -961,7 +979,7 @@ const SlicerApp = () => {
               fontWeight: "bold",
             }}
           >
-            ↑ EXPORT .TSL
+            ↑ EXPORT .TSL {liveSetPatches.length > 0 ? `(${liveSetPatches.length})` : ""}
           </button>
           <button
             onClick={randomizeAll}
@@ -978,11 +996,38 @@ const SlicerApp = () => {
           >
             ☢︎ RANDOMIZE
           </button>
+          {/* --- PANNEAU DU LIVE SET MANAGER --- */}
+          {liveSetPatches.length >= 0 && (
+            <div style={{ width: "100%", background: "#222", padding: "15px", borderRadius: "8px", marginBottom: "10px", border: "1px solid #444" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <h3 style={{ margin: 0, color: "#0FF" }}>{liveSetName} </h3>
+                <button onClick={() => setEditingPatchIndex(null)} style={{ background: "#444", color: "#FFF", border: "none", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }}>
+                  + NEW PATCH
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "150px", overflowY: "auto", paddingRight: "5px" }}>
+                {liveSetPatches.map((patch, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: editingPatchIndex === i ? "#333" : "#111", padding: "8px 12px", borderRadius: "4px", borderLeft: editingPatchIndex === i ? "4px solid #F0F" : "4px solid #0FF" }}>
+                    <span style={{ color: "#FFF", fontSize: "13px" }}>
+                      <strong>{i + 1}.</strong> {patch.bossParams.patchName}
+                    </span>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <button onClick={() => handleLoadPatch(i)} style={{ background: "#0FF", color: "#000", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", margin: "5px", fontWeight: "bold" }}>
+                        LOAD
+                      </button>
+                      <button onClick={() => { removePatch(i); if(editingPatchIndex === i) setEditingPatchIndex(null); }} style={{ background: "#000",boxShadow: "0 0 8px #F00", color: "#F00", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}>
+                        DELETE
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
           {/* --- COMMUNITY PRESETS DROPDOWN --- */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
+              marginTop: "15px",
               gap: "10px",
               background: "#222",
               padding: "5px 10px",
@@ -1037,6 +1082,8 @@ const SlicerApp = () => {
               + Submit PR
             </a>
           </div>
+            </div>
+          )}
           {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
           <a
             href='https://ko-fi.com/labrikman'
@@ -1044,7 +1091,7 @@ const SlicerApp = () => {
             rel='noopener noreferrer'
             title='If you like my work and you want to improve this project support me ❤️‍🔥'
             style={{
-              padding: "8px 15px",
+              padding: "8px",
               background: "#ffffff",
               color: "#F00",
               textDecoration: "none",

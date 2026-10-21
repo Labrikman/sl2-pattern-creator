@@ -1,4 +1,4 @@
-export const exportTSL = (bossParams, liveSetName, ch1Steps, ch2Steps) => {
+export const exportTSL = (liveSetName, patchesList) => {
   const toHex = (val) =>
     Math.max(0, Math.min(255, Math.round(val || 0)))
       .toString(16)
@@ -32,53 +32,46 @@ export const exportTSL = (bossParams, liveSetName, ch1Steps, ch2Steps) => {
         data[4 + i] = toHex(step.length !== undefined ? step.length : 50);
         data[28 + i] = toHex(step.level !== undefined ? step.level : 0);
         data[52 + i] = toHex(step.filter !== undefined ? step.filter : 50);
-        // On force à 12 (0C en hexa) pour conserver une structure TSL valide sans utiliser de variable pitch obsolète
-        data[76 + i] = toHex(12);
+        data[76 + i] = toHex(12); // Pitch neutre forcé
       }
     });
     return data;
   };
 
 
+  // On boucle sur la liste des patchs pour générer le tableau final
+  const patchDataArray = patchesList.map((patch) => ({
+    memo: {
+      memo: "Exported via SL2PC",
+      isToneCentralPatch: true,
+    },
+    paramSet: {
+      "PATCH%COM": formatPatchName(patch.bossParams.patchName),
+      "PATCH%SLICER(1)": formatSlicerData(patch.ch1Steps, patch.bossParams.slicer1Header),
+      "PATCH%SLICER(2)": formatSlicerData(patch.ch2Steps, patch.bossParams.slicer2Header),
+      "PATCH%COMP": patch.bossParams.comp.map(toHex),
+      "PATCH%DIVIDER": patch.bossParams.divider.map(toHex),
+      "PATCH%PHASER(1)": patch.bossParams.phaser1.map(toHex),
+      "PATCH%PHASER(2)": patch.bossParams.phaser2.map(toHex),
+      "PATCH%FLANGER(1)": patch.bossParams.flanger1.map(toHex),
+      "PATCH%FLANGER(2)": patch.bossParams.flanger2.map(toHex),
+      "PATCH%TREMOLO(1)": patch.bossParams.tremolo1.map(toHex),
+      "PATCH%TREMOLO(2)": patch.bossParams.tremolo2.map(toHex),
+      "PATCH%OVERTONE(1)": patch.bossParams.overtone1.map(toHex),
+      "PATCH%OVERTONE(2)": patch.bossParams.overtone2.map(toHex),
+      "PATCH%MIXER": patch.bossParams.mixer.map(toHex),
+      "PATCH%NS": patch.bossParams.ns.map(toHex),
+      "PATCH%PEQ": patch.bossParams.peq.map(toHex),
+      "PATCH%BEAT": patch.bossParams.beat.map(toHex),
+    },
+  }));
+
+
   const tslContent = {
     name: liveSetName,
     formatRev: "0001",
     device: "SL-2",
-    data: [
-      [
-        {
-          memo: {
-            memo: "Exported via SL2PC",
-            isToneCentralPatch: true,
-          },
-          paramSet: {
-            "PATCH%COM": formatPatchName(bossParams.patchName),
-            "PATCH%SLICER(1)": formatSlicerData(
-              ch1Steps,
-              bossParams.slicer1Header,
-            ),
-            "PATCH%SLICER(2)": formatSlicerData(
-              ch2Steps,
-              bossParams.slicer2Header,
-            ),
-            "PATCH%COMP": bossParams.comp.map(toHex),
-            "PATCH%DIVIDER": bossParams.divider.map(toHex),
-            "PATCH%PHASER(1)": bossParams.phaser1.map(toHex),
-            "PATCH%PHASER(2)": bossParams.phaser2.map(toHex),
-            "PATCH%FLANGER(1)": bossParams.flanger1.map(toHex),
-            "PATCH%FLANGER(2)": bossParams.flanger2.map(toHex),
-            "PATCH%TREMOLO(1)": bossParams.tremolo1.map(toHex),
-            "PATCH%TREMOLO(2)": bossParams.tremolo2.map(toHex),
-            "PATCH%OVERTONE(1)": bossParams.overtone1.map(toHex),
-            "PATCH%OVERTONE(2)": bossParams.overtone2.map(toHex),
-            "PATCH%MIXER": bossParams.mixer.map(toHex),
-            "PATCH%NS": bossParams.ns.map(toHex),
-            "PATCH%PEQ": bossParams.peq.map(toHex),
-            "PATCH%BEAT": bossParams.beat.map(toHex),
-          },
-        },
-      ],
-    ],
+    data: [patchDataArray], // array containing the array of patches
   };
 
 
@@ -89,10 +82,9 @@ export const exportTSL = (bossParams, liveSetName, ch1Steps, ch2Steps) => {
 
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${bossParams.patchName.replace(/\s+/g, "_").toLowerCase()}.tsl`;
+  link.download = `${liveSetName.replace(/\s+/g, "_").toLowerCase()}.tsl`;
   link.click();
 };
-
 
 export const applyTSLData = (jsonString, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams) => {
   try {

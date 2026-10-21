@@ -85,3 +85,59 @@ export const exportTSL = (liveSetName, patchesList) => {
   link.download = `${liveSetName.replace(/\s+/g, "_").toLowerCase()}.tsl`;
   link.click();
 };
+
+export const applyTSLData = (jsonString, setLiveSetName, setCh1Steps, setCh2Steps, setBossParams) => {
+  try {
+    const json = JSON.parse(jsonString);
+    if (json.name) setLiveSetName(json.name);
+
+
+    const patch = json.data[0][0].paramSet;
+    const fromHex = (h) => parseInt(h, 16);
+    const parseArray = (hexArray) => (hexArray ? hexArray.map(fromHex) : []);
+
+
+    const importedName = patch["PATCH%COM"]
+      .map((h) => String.fromCharCode(fromHex(h)))
+      .join("")
+      .trim();
+
+
+    const parseSlicer = (data) =>
+      Array.from({ length: 24 }, (_, i) => ({
+        length: fromHex(data[4 + i]),
+        level: fromHex(data[28 + i]),
+        filter: fromHex(data[52 + i]),
+      }));
+
+
+    setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
+    setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));
+
+
+    const sl1Data = patch["PATCH%SLICER(1)"];
+    const sl2Data = patch["PATCH%SLICER(2)"];
+    
+    setBossParams({
+      patchName: importedName || "IMPORTED PATCH",
+      slicer1Header: [fromHex(sl1Data[0]), fromHex(sl1Data[1]), fromHex(sl1Data[2]), fromHex(sl1Data[3])],
+      slicer2Header: [fromHex(sl2Data[0]), fromHex(sl2Data[1]), fromHex(sl2Data[2]), fromHex(sl2Data[3])],
+      comp: parseArray(patch["PATCH%COMP"]),
+      divider: parseArray(patch["PATCH%DIVIDER"]),
+      mixer: parseArray(patch["PATCH%MIXER"]),
+      ns: parseArray(patch["PATCH%NS"]),
+      peq: parseArray(patch["PATCH%PEQ"]),
+      beat: parseArray(patch["PATCH%BEAT"]),
+      phaser1: parseArray(patch["PATCH%PHASER(1)"]),
+      phaser2: parseArray(patch["PATCH%PHASER(2)"]),
+      flanger1: parseArray(patch["PATCH%FLANGER(1)"]),
+      flanger2: parseArray(patch["PATCH%FLANGER(2)"]),
+      tremolo1: parseArray(patch["PATCH%TREMOLO(1)"]),
+      tremolo2: parseArray(patch["PATCH%TREMOLO(2)"]),
+      overtone1: parseArray(patch["PATCH%OVERTONE(1)"]),
+      overtone2: parseArray(patch["PATCH%OVERTONE(2)"]),
+    });
+  } catch (err) {
+    alert("Error parsing .tsl data.");
+  }
+};

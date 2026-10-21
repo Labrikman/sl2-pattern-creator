@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/sl2-pattern-creator/static/css/main.fc543f8a.css",
-    "main.js": "/sl2-pattern-creator/static/js/main.e8cfd7fb.js",
+    "main.js": "/sl2-pattern-creator/static/js/main.b400eb4c.js",
     "index.html": "/sl2-pattern-creator/index.html",
     "main.fc543f8a.css.map": "/sl2-pattern-creator/static/css/main.fc543f8a.css.map",
-    "main.e8cfd7fb.js.map": "/sl2-pattern-creator/static/js/main.e8cfd7fb.js.map"
+    "main.b400eb4c.js.map": "/sl2-pattern-creator/static/js/main.b400eb4c.js.map"
   },
   "entrypoints": [
     "static/css/main.fc543f8a.css",
-    "static/js/main.e8cfd7fb.js"
+    "static/js/main.b400eb4c.js"
   ]
 }

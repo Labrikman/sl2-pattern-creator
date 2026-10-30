@@ -2,14 +2,6 @@
 const COMMUNITY_PRESETS = [
   { label: "--- Select a Community Preset ---", url: "" },
   {
-    label: "FIRST_PRESET",
-    url: process.env.PUBLIC_URL + "/presets/first_preset.tsl",
-  },
-  {
-    label: "pattern-interesting",
-    url: process.env.PUBLIC_URL + "/presets/pattern-interesting.tsl",
-  },
-  {
     label: "STRANGER-THING",
     url: process.env.PUBLIC_URL + "/presets/stranger-thing.tsl",
   },

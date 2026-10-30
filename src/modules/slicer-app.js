@@ -2733,7 +2733,7 @@ const SlicerApp = () => {
           );
         })}
       </div>
-      {/* FOOTER & LIENS D'AFFILIATION */}
+      {/* FOOTER & AFFILIATION LINK*/}
       <div
         style={{
           marginTop: "40px",

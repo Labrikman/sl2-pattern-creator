@@ -12,7 +12,7 @@ import {
   loadPresetFromUrl,
   generateReverbBuffer,
 } from "../utils/functions";
-import { applyTSLData } from "../utils/tlsManager";
+import { applyTSLData, handleImportTSL } from "../utils/tlsManager";
 import useLiveSetManager from "../utils/useLiveSetManager";
 
 const SlicerApp = () => {
@@ -68,8 +68,15 @@ const SlicerApp = () => {
   const stepRef = useRef({ ch1: ch1Steps, ch2: ch2Steps });
   // --- GLOBAL STATE FOR EXHAUSTIVE BOSS SL-2 PARAMS ---
   const [liveSetName, setLiveSetName] = useState("My Live Set");
-  const { liveSetPatches, addToLiveSet, updatePatch, removePatch, clearLiveSet, exportLiveSet } = useLiveSetManager(liveSetName);
-  const [editingPatchIndex, setEditingPatchIndex] = useState(null); 
+  const {
+    liveSetPatches,
+    addToLiveSet,
+    updatePatch,
+    removePatch,
+    clearLiveSet,
+    exportLiveSet,
+  } = useLiveSetManager(liveSetName);
+  const [editingPatchIndex, setEditingPatchIndex] = useState(null);
   const [bossParams, setBossParams] = useState({
     patchName: "MY SL2 PATCH",
     slicer1Header: [50, 1, 0, 0],
@@ -92,6 +99,7 @@ const SlicerApp = () => {
     tremolo2: [0, 100, 85, 0, 50, 50],
     overtone2: [0, 50, 50, 50, 100, 35, 50, 50, 1],
   });
+  const [importedLiveset, setImportedLiveset] = useState([]);
 
   // --- FUNCTION TO UPDATE BOSS PARAMS ---
   const updateBossParam = (effectName, index, value) => {
@@ -179,18 +187,14 @@ const SlicerApp = () => {
 
   // --- TSL IMPORT FUNCTIONS ---
   const importTSL = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) =>
-      applyTSLData(
-        event.target.result,
-        setLiveSetName,
-        setCh1Steps,
-        setCh2Steps,
-        setBossParams,
-      );
-    reader.readAsText(file);
+    handleImportTSL(
+      e.target.files[0],
+      setImportedLiveset,
+      setLiveSetName,
+      setCh1Steps,
+      setCh2Steps,
+      setBossParams,
+    );
     e.target.value = "";
   };
 
@@ -787,7 +791,7 @@ const SlicerApp = () => {
     }
   };
 
-/*   const formatStepsForExport = (steps, effectType) => {
+  /*   const formatStepsForExport = (steps, effectType) => {
     return steps.map((step) => {
       if (effectType === 1) {
         const pitchToEffectLevel = Math.round((50 + step.filter) * (50 / 12));
@@ -861,13 +865,25 @@ const SlicerApp = () => {
     }
   };
 
-
   const handleLoadPatch = (index) => {
     const patchToLoad = liveSetPatches[index];
     setBossParams(patchToLoad.bossParams);
     setCh1Steps(patchToLoad.ch1Steps);
     setCh2Steps(patchToLoad.ch2Steps);
     setEditingPatchIndex(index);
+  };
+
+  const loadPatchFromLiveset = (index) => {
+    const patch = importedLiveset[index];
+    if (patch) {
+      applyTSLData(
+        JSON.stringify(patch),
+        setLiveSetName,
+        setCh1Steps,
+        setCh2Steps,
+        setBossParams,
+      );
+    }
   };
 
   return (
@@ -967,6 +983,34 @@ const SlicerApp = () => {
           >
             ↓ IMPORT .TSL
           </button>
+          {importedLiveset.length > 1 && (
+            <select
+              onChange={(e) => loadPatchFromLiveset(e.target.value)}
+              style={{
+                padding: "8px",
+                background: "#222",
+                color: "#F0F",
+                border: "1px solid #F0F",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "12px",
+              }}
+            >
+              <option value='' disabled selected>
+                -- Select a Patch --
+              </option>
+              {importedLiveset.map((patch, idx) => {
+                const name =
+                  patch.patchName || patch.name || `Patch ${idx + 1}`;
+                return (
+                  <option key={idx} value={idx}>
+                    {idx + 1}: {name}
+                  </option>
+                );
+              })}
+            </select>
+          )}
           <button
             onClick={() => exportLiveSet(bossParams, ch1Steps, ch2Steps)}
             style={{
@@ -979,7 +1023,8 @@ const SlicerApp = () => {
               fontWeight: "bold",
             }}
           >
-            ↑ EXPORT .TSL {liveSetPatches.length > 0 ? `(${liveSetPatches.length})` : ""}
+            ↑ EXPORT .TSL{" "}
+            {liveSetPatches.length > 0 ? `(${liveSetPatches.length})` : ""}
           </button>
           {/* BOUTON DONATION (Ko-fi / Buy Me a Coffee) */}
           <a
@@ -1003,8 +1048,24 @@ const SlicerApp = () => {
           </a>
           {/* --- PANNEAU DU LIVE SET MANAGER --- */}
           {liveSetPatches.length >= 0 && (
-            <div style={{ width: "100%", background: "#222", padding: "15px", borderRadius: "8px", marginBottom: "10px", border: "1px solid #444" }}>
-              <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "10px" }}>
+            <div
+              style={{
+                width: "100%",
+                background: "#222",
+                padding: "15px",
+                borderRadius: "8px",
+                marginBottom: "10px",
+                border: "1px solid #444",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-start",
+                  alignItems: "center",
+                  marginBottom: "10px",
+                }}
+              >
                 <h3 style={{ margin: 0, color: "#0FF" }}>{liveSetName} </h3>
                 <button
                   onClick={handleSavePatch}
@@ -1022,14 +1083,16 @@ const SlicerApp = () => {
                     fontWeight: "bold",
                   }}
                 >
-                  {editingPatchIndex !== null ? "✎ UPDATE PATCH" : "+ ADD TO LIVE SET"}
+                  {editingPatchIndex !== null
+                    ? "✎ UPDATE PATCH"
+                    : "+ ADD TO LIVE SET"}
                 </button>
-                <button 
-                  onClick={() => setEditingPatchIndex(null)} 
-                  style={{ 
+                <button
+                  onClick={() => setEditingPatchIndex(null)}
+                  style={{
                     padding: "8px 15px",
                     background: "#000",
-                    boxShadow: "0 0 8px #fff", 
+                    boxShadow: "0 0 8px #fff",
                     color: "#fff",
                     border: "none",
                     borderRadius: "4px",
@@ -1045,7 +1108,7 @@ const SlicerApp = () => {
                   style={{
                     padding: "8px 15px",
                     background: "#000",
-                    boxShadow: "0 0 8px #F00", 
+                    boxShadow: "0 0 8px #F00",
                     color: "#F00",
                     marginLeft: "10px",
                     border: "none",
@@ -1073,83 +1136,135 @@ const SlicerApp = () => {
                   ☢︎ RANDOMIZE
                 </button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "150px", overflowY: "auto", paddingRight: "5px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  paddingRight: "5px",
+                }}
+              >
                 {liveSetPatches.map((patch, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: editingPatchIndex === i ? "#333" : "#111", padding: "8px 12px", borderRadius: "4px", borderLeft: editingPatchIndex === i ? "4px solid #F0F" : "4px solid #0FF" }}>
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: editingPatchIndex === i ? "#333" : "#111",
+                      padding: "8px 12px",
+                      borderRadius: "4px",
+                      borderLeft:
+                        editingPatchIndex === i
+                          ? "4px solid #F0F"
+                          : "4px solid #0FF",
+                    }}
+                  >
                     <span style={{ color: "#FFF", fontSize: "13px" }}>
                       <strong>{i + 1}.</strong> {patch.bossParams.patchName}
                     </span>
                     <div style={{ display: "flex", gap: "10px" }}>
-                      <button onClick={() => handleLoadPatch(i)} style={{ background: "#0FF", color: "#000", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", margin: "5px", fontWeight: "bold" }}>
+                      <button
+                        onClick={() => handleLoadPatch(i)}
+                        style={{
+                          background: "#0FF",
+                          color: "#000",
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          margin: "5px",
+                          fontWeight: "bold",
+                        }}
+                      >
                         LOAD
                       </button>
-                      <button onClick={() => { removePatch(i); if(editingPatchIndex === i) setEditingPatchIndex(null); }} style={{ background: "#000",boxShadow: "0 0 8px #F00", color: "#F00", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}>
+                      <button
+                        onClick={() => {
+                          removePatch(i);
+                          if (editingPatchIndex === i)
+                            setEditingPatchIndex(null);
+                        }}
+                        style={{
+                          background: "#000",
+                          boxShadow: "0 0 8px #F00",
+                          color: "#F00",
+                          border: "none",
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                        }}
+                      >
                         DELETE
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
-          {/* --- COMMUNITY PRESETS DROPDOWN --- */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginTop: "15px",
-              gap: "10px",
-              background: "#222",
-              padding: "5px 10px",
-              borderRadius: "4px",
-              border: "1px solid #444",
-            }}
-          >
-            <span style={{ fontSize: "16px" }}>⚒︎</span>
-            <select
-              onChange={(e) =>
-                loadPresetFromUrl(e.target.value, (jsonString) =>
-                  applyTSLData(
-                    jsonString,
-                    setLiveSetName,
-                    setCh1Steps,
-                    setCh2Steps,
-                    setBossParams,
-                  ),
-                )
-              }
-              style={{
-                background: "#111",
-                color: "#0FF",
-                border: "1px solid #333",
-                padding: "6px",
-                borderRadius: "4px",
-                fontSize: "12px",
-                cursor: "pointer",
-              }}
-            >
-              {COMMUNITY_PRESETS.map((preset, idx) => (
-                <option key={idx} value={preset.url}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
+              {/* --- COMMUNITY PRESETS DROPDOWN --- */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginTop: "15px",
+                  gap: "10px",
+                  background: "#222",
+                  padding: "5px 10px",
+                  borderRadius: "4px",
+                  border: "1px solid #444",
+                }}
+              >
+                <span style={{ fontSize: "16px" }}>⚒︎</span>
+                <select
+                  onChange={(e) =>
+                    loadPresetFromUrl(e.target.value, (jsonString) =>
+                      applyTSLData(
+                        jsonString,
+                        setLiveSetName,
+                        setCh1Steps,
+                        setCh2Steps,
+                        setBossParams,
+                      ),
+                    )
+                  }
+                  style={{
+                    background: "#111",
+                    color: "#0FF",
+                    border: "1px solid #333",
+                    padding: "6px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {COMMUNITY_PRESETS.map((preset, idx) => (
+                    <option key={idx} value={preset.url}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
 
-            {/* link to Pull Request */}
-            <a
-              href='https://github.com/Labrikman/sl2-pattern-creator/tree/main/public/presets'
-              target='_blank'
-              rel='noopener noreferrer'
-              title='Share your own pattern by submitting a Pull Request!'
-              style={{
-                fontSize: "11px",
-                color: "#F0F",
-                textDecoration: "none",
-                fontWeight: "bold",
-                marginLeft: "5px",
-              }}
-            >
-              + Submit PR
-            </a>
-          </div>
+                {/* link to Pull Request */}
+                <a
+                  href='https://github.com/Labrikman/sl2-pattern-creator/tree/main/public/presets'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  title='Share your own pattern by submitting a Pull Request!'
+                  style={{
+                    fontSize: "11px",
+                    color: "#F0F",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                    marginLeft: "5px",
+                  }}
+                >
+                  + Submit PR
+                </a>
+              </div>
             </div>
           )}
         </div>

@@ -2587,52 +2587,7 @@ const SlicerApp = () => {
                       </div>
 
                       {isPitchQuantized ? (
-                        // --- NOTES MODE (-24 à +24) ---
-                        <label
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            fontSize: "11px",
-                            color: "#ccc",
-                          }}
-                        >
-                          <input
-                            type='range'
-                            min='-24'
-                            max='24'
-                            step='1'
-                            value={Math.round(
-                              (steps[editStepIndex].filter - 50) * (24 / 50),
-                            )}
-                            onChange={(e) => {
-                              const semitones = Number(e.target.value);
-                              const filterVal = Math.max(
-                                0,
-                                Math.min(
-                                  100,
-                                  Math.round(50 + semitones * (50 / 24)),
-                                ),
-                              );
-                              updateStep(
-                                channel,
-                                editStepIndex,
-                                "filter",
-                                filterVal,
-                              );
-                            }}
-                          />
-                          <span
-                            style={{ marginBottom: "5px", fontStyle: "italic" }}
-                          >
-                            {getPitchDisplay(
-                              Math.round(
-                                (steps[editStepIndex].filter - 50) * (24 / 50),
-                              ),
-                            )}
-                          </span>
-                        </label>
-                      ) : (
-                        // --- FREE MODE (0 à 100) ---
+                        // --- NOTES MODE (-12 à +12 half-tons = value 0 to 24) ---
                         <label
                           style={{
                             display: "flex",
@@ -2644,14 +2599,57 @@ const SlicerApp = () => {
                           <input
                             type='range'
                             min='0'
-                            max='100'
+                            max='24'
                             step='1'
-                            value={steps[editStepIndex].filter}
+                            value={
+                              steps[editStepIndex].pitch !== undefined
+                                ? steps[editStepIndex].pitch
+                                : 12
+                            }
+                            onChange={(e) => {
+                              updateStep(
+                                channel,
+                                editStepIndex,
+                                "pitch",
+                                e.target.value,
+                              );
+                            }}
+                          />
+                          <span
+                            style={{ marginBottom: "5px", fontStyle: "italic" }}
+                          >
+                            {getPitchDisplay(
+                              (steps[editStepIndex].pitch !== undefined
+                                ? steps[editStepIndex].pitch
+                                : 12) - 12,
+                            )}
+                          </span>
+                        </label>
+                      ) : (
+                        // --- FREE MODE (Glissando / Pitch fin) ---
+                        <label
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            fontSize: "11px",
+                            color: "#ccc",
+                          }}
+                        >
+                          <input
+                            type='range'
+                            min='0'
+                            max='24'
+                            step='0.1'
+                            value={
+                              steps[editStepIndex].pitch !== undefined
+                                ? steps[editStepIndex].pitch
+                                : 12
+                            }
                             onChange={(e) =>
                               updateStep(
                                 channel,
                                 editStepIndex,
-                                "filter",
+                                "pitch",
                                 e.target.value,
                               )
                             }
@@ -2659,7 +2657,10 @@ const SlicerApp = () => {
                           <span
                             style={{ marginBottom: "5px", fontStyle: "italic" }}
                           >
-                            Brute value: {steps[editStepIndex].filter}
+                            Valeur brute:{" "}
+                            {steps[editStepIndex].pitch !== undefined
+                              ? steps[editStepIndex].pitch
+                              : 12}
                           </span>
                         </label>
                       )}

@@ -7,6 +7,7 @@ const generateEmptyTrack = () =>
     level: 100,
     filter: 50,
     length: 50,
+    pitch: 12,
   }));
 
 export { stepNumber, generateEmptyTrack, MAX_STEPS };

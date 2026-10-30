@@ -2598,20 +2598,27 @@ const SlicerApp = () => {
                         >
                           <input
                             type='range'
-                            min='0'
+                            min='-24'
                             max='24'
                             step='1'
-                            value={
-                              steps[editStepIndex].pitch !== undefined
-                                ? steps[editStepIndex].pitch
-                                : 12
-                            }
+                            value={Math.round(
+                              (steps[editStepIndex].filter - 50) * (24 / 50),
+                            )}
                             onChange={(e) => {
+                              const semitones = Number(e.target.value);
+                              // Convertit les demi-tons (-24/+24) vers l'échelle Boss (0-100)
+                              const filterVal = Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  Math.round(50 + semitones * (50 / 24)),
+                                ),
+                              );
                               updateStep(
                                 channel,
                                 editStepIndex,
-                                "pitch",
-                                e.target.value,
+                                "filter",
+                                filterVal,
                               );
                             }}
                           />
@@ -2619,9 +2626,9 @@ const SlicerApp = () => {
                             style={{ marginBottom: "5px", fontStyle: "italic" }}
                           >
                             {getPitchDisplay(
-                              (steps[editStepIndex].pitch !== undefined
-                                ? steps[editStepIndex].pitch
-                                : 12) - 12,
+                              Math.round(
+                                (steps[editStepIndex].filter - 50) * (24 / 50),
+                              ),
                             )}
                           </span>
                         </label>

@@ -29,7 +29,7 @@ export const exportTSL = (liveSetName, patchesList) => {
         data[4 + i] = toHex(step.length !== undefined ? step.length : 50);
         data[28 + i] = toHex(step.level !== undefined ? step.level : 0);
         data[52 + i] = toHex(step.filter !== undefined ? step.filter : 50);
-        data[76 + i] = toHex(12);
+        data[76 + i] = toHex(step.pitch !== undefined ? step.pitch : 12);
       }
     });
     return data;
@@ -121,6 +121,7 @@ export const applyTSLData = (
         length: fromHex(data[4 + i]),
         level: fromHex(data[28 + i]),
         filter: fromHex(data[52 + i]),
+        pitch: fromHex(data[76 + i]) || 12,
       }));
 
     setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));

@@ -24,7 +24,6 @@ const SlicerApp = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [editStepCh1, setEditStepCh1] = useState(0);
   const [editStepCh2, setEditStepCh2] = useState(0);
-  const [isPitchQuantized, setIsPitchQuantized] = useState(true);
   const [kbdOctave, setKbdOctave] = useState(0);
   const [synthConfig, setSynthConfig] = useState({
     pitch: 0,
@@ -698,10 +697,10 @@ const SlicerApp = () => {
             const timeOffset = (Math.random() - 0.5) * groove;
             const now = audioCtx.current.currentTime;
             const time = Math.max(now, now + timeOffset);
-
             let activePitch = 0;
             if (effectType === 1) {
-              activePitch = Math.round((stepData.filter - 50) * (24 / 50));
+              activePitch =
+                (stepData.pitch !== undefined ? stepData.pitch : 12) - 12;
             }
             const totalPitch = activePitch + Number(synthConfig.pitch);
             const freq = 220 * Math.pow(2, totalPitch / 12);
@@ -2544,133 +2543,99 @@ const SlicerApp = () => {
                       }
                     />
                   </label>
+
                   {currentEffectType === 1 ? (
                     <div
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: "8px",
+                        gap: "15px",
                         minWidth: "130px",
                       }}
                     >
-                      <div
+                      <label
                         style={{
                           display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
+                          flexDirection: "column",
+                          fontSize: "12px",
+                          color: "#ccc",
                         }}
                       >
                         <span
                           style={{
-                            fontSize: "12px",
+                            marginBottom: "5px",
                             color: "#F0F",
                             fontWeight: "bold",
                           }}
                         >
-                          {isPitchQuantized ? "Pitch (Notes)" : "Pitch (free)"}
+                          Pitch (Note)
                         </span>
-                        <button
-                          onClick={() => setIsPitchQuantized(!isPitchQuantized)}
-                          style={{
-                            background: isPitchQuantized ? "#F0F" : "#444",
-                            color: isPitchQuantized ? "#000" : "#fff",
-                            border: "none",
-                            borderRadius: "4px",
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          SWITCH
-                        </button>
-                      </div>
-
-                      {isPitchQuantized ? (
-                        // --- NOTES MODE (-12 à +12 half-tons = value 0 to 24) ---
-                        <label
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            fontSize: "11px",
-                            color: "#ccc",
-                          }}
-                        >
-                          <input
-                            type='range'
-                            min='-24'
-                            max='24'
-                            step='1'
-                            value={Math.round(
-                              (steps[editStepIndex].filter - 50) * (24 / 50),
-                            )}
-                            onChange={(e) => {
-                              const semitones = Number(e.target.value);
-                              // Convertit les demi-tons (-24/+24) vers l'échelle Boss (0-100)
-                              const filterVal = Math.max(
-                                0,
-                                Math.min(
-                                  100,
-                                  Math.round(50 + semitones * (50 / 24)),
-                                ),
-                              );
-                              updateStep(
-                                channel,
-                                editStepIndex,
-                                "filter",
-                                filterVal,
-                              );
-                            }}
-                          />
-                          <span
-                            style={{ marginBottom: "5px", fontStyle: "italic" }}
-                          >
-                            {getPitchDisplay(
-                              Math.round(
-                                (steps[editStepIndex].filter - 50) * (24 / 50),
-                              ),
-                            )}
-                          </span>
-                        </label>
-                      ) : (
-                        // --- FREE MODE (Glissando / Pitch fin) ---
-                        <label
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            fontSize: "11px",
-                            color: "#ccc",
-                          }}
-                        >
-                          <input
-                            type='range'
-                            min='0'
-                            max='24'
-                            step='0.1'
-                            value={
-                              steps[editStepIndex].pitch !== undefined
-                                ? steps[editStepIndex].pitch
-                                : 12
-                            }
-                            onChange={(e) =>
-                              updateStep(
-                                channel,
-                                editStepIndex,
-                                "pitch",
-                                e.target.value,
-                              )
-                            }
-                          />
-                          <span
-                            style={{ marginBottom: "5px", fontStyle: "italic" }}
-                          >
-                            Valeur brute:{" "}
-                            {steps[editStepIndex].pitch !== undefined
+                        <input
+                          type='range'
+                          min='0'
+                          max='24'
+                          step='1'
+                          value={
+                            steps[editStepIndex].pitch !== undefined
                               ? steps[editStepIndex].pitch
-                              : 12}
-                          </span>
-                        </label>
-                      )}
+                              : 12
+                          }
+                          onChange={(e) =>
+                            updateStep(
+                              channel,
+                              editStepIndex,
+                              "pitch",
+                              e.target.value,
+                            )
+                          }
+                        />
+                        <span
+                          style={{
+                            marginBottom: "5px",
+                            fontStyle: "italic",
+                            fontSize: "11px",
+                          }}
+                        >
+                          {getPitchDisplay(
+                            (steps[editStepIndex].pitch !== undefined
+                              ? steps[editStepIndex].pitch
+                              : 12) - 12,
+                          )}
+                        </span>
+                      </label>
+                      <label
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          fontSize: "12px",
+                          color: "#ccc",
+                        }}
+                      >
+                        <span style={{ marginBottom: "5px" }}>
+                          Effect Level:{" "}
+                          {steps[editStepIndex].filter !== undefined
+                            ? steps[editStepIndex].filter
+                            : 50}
+                        </span>
+                        <input
+                          type='range'
+                          min='0'
+                          max='100'
+                          value={
+                            steps[editStepIndex].filter !== undefined
+                              ? steps[editStepIndex].filter
+                              : 50
+                          }
+                          onChange={(e) =>
+                            updateStep(
+                              channel,
+                              editStepIndex,
+                              "filter",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </label>
                     </div>
                   ) : (
                     // --- OTHER EFFECTS (Flanger, Phaser...) ---

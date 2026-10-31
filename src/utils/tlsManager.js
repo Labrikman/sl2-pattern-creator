@@ -71,7 +71,7 @@ export const exportTSL = (liveSetName, patchesList) => {
     name: liveSetName,
     formatRev: "0001",
     device: "SL-2",
-    data: patchDataArray,
+    data: [patchDataArray],
   };
 
   const blob = new Blob([JSON.stringify(tslContent, null, 2)], {
@@ -100,7 +100,8 @@ export const applyTSLData = (
     if (json.paramSet) {
       patch = json.paramSet;
     } else if (json.data && Array.isArray(json.data)) {
-      patch = json.data[0].paramSet;
+      const patchList = Array.isArray(json.data[0]) ? json.data[0] : json.data;
+      patch = patchList[0].paramSet;
     } else if (json.patchList && Array.isArray(json.patchList)) {
       patch = json.patchList[0].paramSet;
     }
@@ -181,7 +182,9 @@ export const handleImportTSL = (
       let patchList = [];
 
       if (parsedData.data && Array.isArray(parsedData.data)) {
-        patchList = parsedData.data;
+        patchList = Array.isArray(parsedData.data[0])
+          ? parsedData.data[0]
+          : parsedData.data;
       } else if (parsedData.patchList && Array.isArray(parsedData.patchList)) {
         patchList = parsedData.patchList;
       } else if (Array.isArray(parsedData)) {

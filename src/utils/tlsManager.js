@@ -18,7 +18,7 @@ export const exportTSL = (liveSetName, patchesList) => {
   };
 
   const formatSlicerData = (steps, header) => {
-    const data = Array(100).fill("00");
+    const data = Array(124).fill("00");
     data[0] = toHex(header[0]);
     data[1] = toHex(header[1]);
     data[2] = toHex(header[2]);
@@ -29,7 +29,8 @@ export const exportTSL = (liveSetName, patchesList) => {
         data[4 + i] = toHex(step.length !== undefined ? step.length : 50);
         data[28 + i] = toHex(step.level !== undefined ? step.level : 0);
         data[52 + i] = toHex(step.filter !== undefined ? step.filter : 50);
-        data[76 + i] = toHex(step.pitch !== undefined ? step.pitch : 12);
+        data[76 + i] = "32";
+        data[100 + i] = toHex(step.pitch !== undefined ? step.pitch : 12);
       }
     });
     return data;
@@ -117,12 +118,16 @@ export const applyTSLData = (
       .trim();
 
     const parseSlicer = (data) =>
-      Array.from({ length: 24 }, (_, i) => ({
-        length: fromHex(data[4 + i]),
-        level: fromHex(data[28 + i]),
-        filter: fromHex(data[52 + i]),
-        pitch: fromHex(data[76 + i]) || 12,
-      }));
+      Array.from({ length: 24 }, (_, i) => {
+        const pitchVal =
+          data[100 + i] !== undefined ? fromHex(data[100 + i]) : NaN;
+        return {
+          length: fromHex(data[4 + i]),
+          level: fromHex(data[28 + i]),
+          filter: fromHex(data[52 + i]),
+          pitch: !isNaN(pitchVal) ? pitchVal : 12,
+        };
+      });
 
     setCh1Steps(parseSlicer(patch["PATCH%SLICER(1)"]));
     setCh2Steps(parseSlicer(patch["PATCH%SLICER(2)"]));
